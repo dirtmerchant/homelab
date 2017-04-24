@@ -1,5 +1,5 @@
-user { 'u2':
+user { 'bob':
   managehome => true,
-  uid        => '2002',
-  esure      => 'present',
+  groups     => ['wheel', 'users'],
+  password   => pw_hash('Password1','SHA-512','random'),
 }
