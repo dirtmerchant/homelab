@@ -1,5 +1,5 @@
-user { 'u2':
+user { 'tux':
   managehome => true,
-  uid        => '2002',
-  esure      => 'present',
+  groups     => ['sudo', 'users'],
+  ensure     => present,
 }
