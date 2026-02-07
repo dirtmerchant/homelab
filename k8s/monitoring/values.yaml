@@ -1,0 +1,15 @@
+grafana:
+  adminPassword: admin
+  service:
+    type: LoadBalancer
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi
