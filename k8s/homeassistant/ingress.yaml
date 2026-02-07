@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`hass.homelab.local`)
+    - match: Host(`hass.homelab.bertbullough.com`)
       kind: Rule
       services:
         - name: homeassistant

@@ -36,6 +36,8 @@ spec:
               value: admin
             - name: FTLCONF_dns_listeningMode
               value: all
+            - name: FTLCONF_misc_etc_dnsmasq_d
+              value: "true"
           volumeMounts:
             - name: config
               mountPath: /etc/pihole

@@ -26,19 +26,19 @@ SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
 - **Traefik** v2.11 — Ingress controller in `traefik` namespace
   - LoadBalancer IP: 192.168.1.202
   - All HTTP services route through Traefik by hostname
-  - Dashboard: http://192.168.1.202:8080 or `traefik.homelab.local`
+  - Dashboard: http://192.168.1.202:8080 or `traefik.homelab.bertbullough.com`
 - **kube-prometheus-stack** — Helm release `monitoring` in `monitoring` namespace
-  - Grafana: `grafana.homelab.local` via Traefik (admin/admin)
+  - Grafana: `grafana.homelab.bertbullough.com` via Traefik (admin/admin)
   - Prometheus: 30d retention, 20Gi storage
 - **Home Assistant** — `homeassistant` namespace
-  - UI: `hass.homelab.local` via Traefik (port 80)
+  - UI: `hass.homelab.bertbullough.com` via Traefik (port 80)
   - 10Gi PVC on local-path for `/config`
   - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
 - **Pi-hole** v6 — `pihole` namespace
   - DNS: LoadBalancer IP 192.168.1.200 (port 53 TCP/UDP)
-  - Web admin: `pihole.homelab.local` via Traefik (admin/admin)
+  - Web admin: `pihole.homelab.bertbullough.com` via Traefik (admin/admin)
   - PVCs on local-path: 1Gi for `/etc/pihole`, 500Mi for `/etc/dnsmasq.d`
-  - Custom DNS: `custom-dns.yaml` ConfigMap with dnsmasq `address=` entries for `*.homelab.local` hostnames
+  - Custom DNS: `custom-dns.yaml` ConfigMap with dnsmasq `address=` entries for `*.homelab.bertbullough.com` hostnames
 
 ## Ingress Routing
 
@@ -48,10 +48,10 @@ Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
 
 | Hostname | Service |
 |---|---|
-| `traefik.homelab.local` | Traefik dashboard |
-| `grafana.homelab.local` | Grafana |
-| `hass.homelab.local` | Home Assistant |
-| `pihole.homelab.local` | Pi-hole admin |
+| `traefik.homelab.bertbullough.com` | Traefik dashboard |
+| `grafana.homelab.bertbullough.com` | Grafana |
+| `hass.homelab.bertbullough.com` | Home Assistant |
+| `pihole.homelab.bertbullough.com` | Pi-hole admin |
 
 ## Repository Structure
 

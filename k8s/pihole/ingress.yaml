@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`pihole.homelab.local`)
+    - match: Host(`pihole.homelab.bertbullough.com`)
       kind: Rule
       services:
         - name: pihole-web

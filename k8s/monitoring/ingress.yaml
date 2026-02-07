@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`grafana.homelab.local`)
+    - match: Host(`grafana.homelab.bertbullough.com`)
       kind: Rule
       services:
         - name: monitoring-grafana
