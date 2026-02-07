@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pihole-custom-dns
+  namespace: pihole
+data:
+  02-custom-dns.conf: |
+    # Homelab local DNS records
+    # All services route through Traefik ingress at 192.168.1.202
+    address=/traefik.homelab.local/192.168.1.202
+    address=/grafana.homelab.local/192.168.1.202
+    address=/hass.homelab.local/192.168.1.202
+    address=/pihole.homelab.local/192.168.1.202
