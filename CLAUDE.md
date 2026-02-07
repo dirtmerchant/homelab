@@ -34,6 +34,10 @@ SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
   - UI: `hass.homelab.local` via Traefik (port 80)
   - 10Gi PVC on local-path for `/config`
   - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
+- **Pi-hole** v6 — `pihole` namespace
+  - DNS: LoadBalancer IP 192.168.1.200 (port 53 TCP/UDP)
+  - Web admin: `pihole.homelab.local` via Traefik (admin/admin)
+  - PVCs on local-path: 1Gi for `/etc/pihole`, 500Mi for `/etc/dnsmasq.d`
 
 ## Ingress Routing
 
@@ -45,6 +49,7 @@ Add entries to `/etc/hosts` or local DNS to resolve hostnames:
 | `traefik.homelab.local` | Traefik dashboard |
 | `grafana.homelab.local` | Grafana |
 | `hass.homelab.local` | Home Assistant |
+| `pihole.homelab.local` | Pi-hole admin |
 
 ## Repository Structure
 
@@ -52,4 +57,5 @@ Add entries to `/etc/hosts` or local DNS to resolve hostnames:
 - `k8s/traefik/` — Traefik ingress controller deployment and IngressRoutes
 - `k8s/monitoring/` — Helm values for kube-prometheus-stack, Grafana IngressRoute
 - `k8s/homeassistant/` — Home Assistant deployment manifests, IngressRoute
+- `k8s/pihole/` — Pi-hole DNS ad-blocker deployment, DNS LoadBalancer, IngressRoute
 - `SETUP.md` — Full setup documentation and node configuration details
