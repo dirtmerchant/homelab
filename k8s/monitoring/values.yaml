@@ -1,7 +1,7 @@
 grafana:
   adminPassword: admin
   service:
-    type: LoadBalancer
+    type: ClusterIP
 prometheus:
   prometheusSpec:
     retention: 30d

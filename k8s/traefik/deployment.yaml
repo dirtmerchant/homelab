@@ -59,6 +59,7 @@ spec:
           args:
             - --api.dashboard=true
             - --api.insecure=true
+            - --ping
             - --entrypoints.web.address=:80
             - --entrypoints.websecure.address=:443
             - --providers.kubernetescrd

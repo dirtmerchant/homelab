@@ -23,17 +23,33 @@ SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
 ## Cluster Add-ons
 
 - **MetalLB** v0.14.9 — L2 mode, IP pool 192.168.1.200–250
+- **Traefik** v2.11 — Ingress controller in `traefik` namespace
+  - LoadBalancer IP: 192.168.1.202
+  - All HTTP services route through Traefik by hostname
+  - Dashboard: http://192.168.1.202:8080 or `traefik.homelab.local`
 - **kube-prometheus-stack** — Helm release `monitoring` in `monitoring` namespace
-  - Grafana: http://192.168.1.200 (admin/admin)
+  - Grafana: `grafana.homelab.local` via Traefik (admin/admin)
   - Prometheus: 30d retention, 20Gi storage
 - **Home Assistant** — `homeassistant` namespace
-  - UI: http://192.168.1.201:8123
+  - UI: `hass.homelab.local` via Traefik (port 80)
   - 10Gi PVC on local-path for `/config`
   - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
+
+## Ingress Routing
+
+All HTTP traffic routes through Traefik at 192.168.1.202 using hostname-based routing.
+Add entries to `/etc/hosts` or local DNS to resolve hostnames:
+
+| Hostname | Service |
+|---|---|
+| `traefik.homelab.local` | Traefik dashboard |
+| `grafana.homelab.local` | Grafana |
+| `hass.homelab.local` | Home Assistant |
 
 ## Repository Structure
 
 - `k8s/metallb/` — MetalLB IP pool and L2 advertisement manifests
-- `k8s/monitoring/` — Helm values for kube-prometheus-stack
-- `k8s/homeassistant/` — Home Assistant deployment manifests
+- `k8s/traefik/` — Traefik ingress controller deployment and IngressRoutes
+- `k8s/monitoring/` — Helm values for kube-prometheus-stack, Grafana IngressRoute
+- `k8s/homeassistant/` — Home Assistant deployment manifests, IngressRoute
 - `SETUP.md` — Full setup documentation and node configuration details
