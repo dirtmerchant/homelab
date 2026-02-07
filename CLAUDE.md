@@ -26,9 +26,13 @@ SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
 - **kube-prometheus-stack** — Helm release `monitoring` in `monitoring` namespace
   - Grafana: http://192.168.1.200 (admin/admin)
   - Prometheus: 30d retention, 20Gi storage
+- **Home Assistant** — `homeassistant` namespace
+  - UI: http://192.168.1.201:8123
+  - 10Gi PVC on local-path for `/config`
 
 ## Repository Structure
 
 - `k8s/metallb/` — MetalLB IP pool and L2 advertisement manifests
 - `k8s/monitoring/` — Helm values for kube-prometheus-stack
+- `k8s/homeassistant/` — Home Assistant deployment manifests
 - `SETUP.md` — Full setup documentation and node configuration details
