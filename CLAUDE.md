@@ -29,6 +29,7 @@ SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
 - **Home Assistant** — `homeassistant` namespace
   - UI: http://192.168.1.201:8123
   - 10Gi PVC on local-path for `/config`
+  - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
 
 ## Repository Structure
 
