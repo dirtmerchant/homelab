@@ -38,11 +38,13 @@ SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
   - DNS: LoadBalancer IP 192.168.1.200 (port 53 TCP/UDP)
   - Web admin: `pihole.homelab.local` via Traefik (admin/admin)
   - PVCs on local-path: 1Gi for `/etc/pihole`, 500Mi for `/etc/dnsmasq.d`
+  - Custom DNS: `custom-dns.yaml` ConfigMap with dnsmasq `address=` entries for `*.homelab.local` hostnames
 
 ## Ingress Routing
 
 All HTTP traffic routes through Traefik at 192.168.1.202 using hostname-based routing.
-Add entries to `/etc/hosts` or local DNS to resolve hostnames:
+Hostnames are resolved automatically by Pi-hole DNS (192.168.1.200) via custom dnsmasq records.
+Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
 
 | Hostname | Service |
 |---|---|
