@@ -1,0 +1,25 @@
+# Secrets and credentials
+*.key
+*.pem
+*.crt
+*.env
+secrets/
+kubeconfig
+kubeconfig.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
