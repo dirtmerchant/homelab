@@ -32,7 +32,7 @@ spec:
           env:
             - name: TZ
               value: America/New_York
-            - name: WEBPASSWORD
+            - name: FTLCONF_webserver_api_password
               value: admin
             - name: FTLCONF_dns_listeningMode
               value: all
