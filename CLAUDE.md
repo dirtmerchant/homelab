@@ -34,6 +34,11 @@ SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
   - UI: `hass.homelab.bertbullough.com` via Traefik (port 80)
   - 10Gi PVC on local-path for `/config`
   - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
+- **ArgoCD** — GitOps controller in `argocd` namespace
+  - UI: `argocd.homelab.bertbullough.com` via Traefik
+  - Helm release `argocd` (argo/argo-cd), non-HA, `server.insecure: true`
+  - App-of-apps pattern: `k8s/argocd/apps/root.yaml` manages all child Applications
+  - Auto-syncs all `k8s/` components from `main` branch
 - **Pi-hole** v6 — `pihole` namespace
   - DNS: LoadBalancer IP 192.168.1.200 (port 53 TCP/UDP)
   - Web admin: `pihole.homelab.bertbullough.com` via Traefik (admin/admin)
@@ -52,6 +57,7 @@ Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
 | `grafana.homelab.bertbullough.com` | Grafana |
 | `hass.homelab.bertbullough.com` | Home Assistant |
 | `pihole.homelab.bertbullough.com` | Pi-hole admin |
+| `argocd.homelab.bertbullough.com` | ArgoCD UI |
 
 ## Repository Structure
 
@@ -60,4 +66,16 @@ Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
 - `k8s/monitoring/` — Helm values for kube-prometheus-stack, Grafana IngressRoute
 - `k8s/homeassistant/` — Home Assistant deployment manifests, IngressRoute
 - `k8s/pihole/` — Pi-hole DNS ad-blocker deployment, DNS LoadBalancer, IngressRoute
+- `k8s/argocd/` — ArgoCD GitOps controller (Helm values, IngressRoute, app-of-apps definitions)
+- `.github/workflows/` — GitHub Actions CI (YAML lint + kubeconform validation)
 - `SETUP.md` — Full setup documentation and node configuration details
+
+## CI/CD
+
+- **GitHub Actions** — PR validation workflow (`.github/workflows/validate.yaml`)
+  - yamllint: lints all YAML in `k8s/` (excludes `k8s/longhorn/`)
+  - kubeconform: validates manifests against k8s 1.34.0 schemas + CRD catalog
+- **ArgoCD** — GitOps auto-sync from `main` branch
+  - Only `k8s/argocd/apps/root.yaml` is manually applied; everything else is managed
+  - Sync waves: namespaces (-3) → MetalLB (-2) → Traefik (-1) → apps (0) → ingress (1)
+  - Monitoring uses multi-source (Helm chart + git values)
