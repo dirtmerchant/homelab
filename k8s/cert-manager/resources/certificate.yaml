@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-homelab
+  namespace: traefik
+spec:
+  secretName: wildcard-homelab-tls
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  dnsNames:
+    - "*.homelab.bertbullough.com"
+  issuerRef:
+    name: homelab-ca
+    kind: ClusterIssuer

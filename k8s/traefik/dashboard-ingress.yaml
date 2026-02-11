@@ -5,7 +5,8 @@ metadata:
   namespace: traefik
 spec:
   entryPoints:
-    - web
+    - websecure
+  tls: {}
   routes:
     - match: Host(`traefik.homelab.bertbullough.com`)
       kind: Rule

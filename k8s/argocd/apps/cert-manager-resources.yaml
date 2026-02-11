@@ -1,21 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: monitoring-ingress
+  name: cert-manager-resources
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   source:
     repoURL: https://github.com/dirtmerchant/homelab.git
     targetRevision: main
-    path: k8s/monitoring
-    directory:
-      include: "ingress.yaml"
+    path: k8s/cert-manager/resources
   destination:
     server: https://kubernetes.default.svc
-    namespace: monitoring
+    namespace: cert-manager
   syncPolicy:
     automated:
       prune: true

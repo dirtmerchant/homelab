@@ -13,7 +13,7 @@ All nodes on wired ethernet (eno1) with static IPs. WiFi disabled.
 | nuc3 | 192.168.1.22 | k3s agent (worker) |
 
 - Gateway: 192.168.1.1
-- DNS: 8.8.8.8, 8.8.4.4
+- DNS: 192.168.1.200 (Pi-hole), 8.8.8.8 (fallback)
 - Config: `/etc/netplan/50-cloud-init.yaml`
 
 ## SSH
@@ -48,7 +48,7 @@ Hardening applied via `/etc/ssh/sshd_config.d/99-hardening.conf`:
 ## Monitoring
 
 - kube-prometheus-stack (Helm release `monitoring` in `monitoring` namespace)
-- Grafana: http://192.168.1.200 (admin / admin)
+- Grafana: https://grafana.homelab.bertbullough.com (admin / admin)
 - Prometheus: 30d retention, 20Gi storage
 - Node exporters on all 3 nodes
 

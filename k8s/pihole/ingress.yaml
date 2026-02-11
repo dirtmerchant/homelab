@@ -5,7 +5,8 @@ metadata:
   namespace: pihole
 spec:
   entryPoints:
-    - web
+    - websecure
+  tls: {}
   routes:
     - match: Host(`pihole.homelab.bertbullough.com`)
       kind: Rule

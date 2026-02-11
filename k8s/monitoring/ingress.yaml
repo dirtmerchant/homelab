@@ -5,7 +5,8 @@ metadata:
   namespace: monitoring
 spec:
   entryPoints:
-    - web
+    - websecure
+  tls: {}
   routes:
     - match: Host(`grafana.homelab.bertbullough.com`)
       kind: Rule

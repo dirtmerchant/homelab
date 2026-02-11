@@ -5,7 +5,8 @@ metadata:
   namespace: homeassistant
 spec:
   entryPoints:
-    - web
+    - websecure
+  tls: {}
   routes:
     - match: Host(`hass.homelab.bertbullough.com`)
       kind: Rule

@@ -5,7 +5,8 @@ metadata:
   namespace: argocd
 spec:
   entryPoints:
-    - web
+    - websecure
+  tls: {}
   routes:
     - match: Host(`argocd.homelab.bertbullough.com`)
       kind: Rule
