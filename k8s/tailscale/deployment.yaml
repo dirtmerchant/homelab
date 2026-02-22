@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tailscale
+  namespace: tailscale
+  labels:
+    app: tailscale
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tailscale
+  template:
+    metadata:
+      labels:
+        app: tailscale
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: tailscale
+          image: tailscale/tailscale:latest
+          env:
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-auth
+                  key: TS_AUTHKEY
+            - name: TS_EXTRA_ARGS
+              value: "--advertise-routes=192.168.1.0/24 --hostname=k3s-subnet-router"
+            - name: TS_USERSPACE
+              value: "false"
+            - name: TS_STATE_DIR
+              value: /var/lib/tailscale
+            - name: TS_KUBE_SECRET
+              value: ""
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_ADMIN
+                - NET_RAW
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            exec:
+              command:
+                - tailscale
+                - status
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - tailscale
+                - status
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          volumeMounts:
+            - name: tailscale-state
+              mountPath: /var/lib/tailscale
+      volumes:
+        - name: tailscale-state
+          emptyDir: {}

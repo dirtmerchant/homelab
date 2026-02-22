@@ -59,6 +59,11 @@ DNS: Pi-hole (192.168.1.200) primary, Google (8.8.8.8) fallback
   - Web admin: `pihole.homelab.bertbullough.com` via Traefik (admin/admin)
   - PVCs on local-path: 1Gi for `/etc/pihole`, 500Mi for `/etc/dnsmasq.d`
   - Custom DNS: `custom-dns.yaml` ConfigMap with dnsmasq `address=` entries for `*.homelab.bertbullough.com` hostnames
+- **Tailscale** — Subnet router in `tailscale` namespace
+  - Advertises 192.168.1.0/24 for remote access to all LAN/cluster services
+  - `hostNetwork: true`, kernel WireGuard (`TS_USERSPACE=false`)
+  - Requires `tailscale-auth` secret with `TS_AUTHKEY` (reusable auth key)
+  - Routes must be approved in Tailscale admin console after deployment
 
 ## Ingress Routing
 
@@ -85,6 +90,7 @@ Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
 - `k8s/homeassistant/` — Home Assistant deployment manifests, IngressRoute
 - `k8s/openclaw/` — OpenClaw AI assistant Helm values, IngressRoute
 - `k8s/pihole/` — Pi-hole DNS ad-blocker deployment, DNS LoadBalancer, IngressRoute
+- `k8s/tailscale/` — Tailscale subnet router for remote LAN access
 - `k8s/argocd/` — ArgoCD GitOps controller (Helm values, IngressRoute, app-of-apps definitions)
 - `.github/workflows/` — GitHub Actions CI (YAML lint + kubeconform validation)
 - `SETUP.md` — Full setup documentation and node configuration details
