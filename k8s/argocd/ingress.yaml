@@ -10,6 +10,9 @@ spec:
   routes:
     - match: Host(`argocd.homelab.bertbullough.com`)
       kind: Rule
+      middlewares:
+        - name: security-headers
+          namespace: traefik
       services:
         - name: argocd-server
           port: 80

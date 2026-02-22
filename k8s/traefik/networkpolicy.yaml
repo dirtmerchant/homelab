@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: traefik
+  namespace: traefik
+spec:
+  podSelector:
+    matchLabels:
+      app: traefik
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow HTTP, HTTPS, and dashboard from anywhere
+    - ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Unrestricted egress — Traefik must reach all backend services
+    # across all namespaces.
+    - {}

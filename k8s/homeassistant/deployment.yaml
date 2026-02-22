@@ -17,14 +17,43 @@ spec:
       labels:
         app: homeassistant
     spec:
+      automountServiceAccountToken: false
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: homeassistant
           image: ghcr.io/home-assistant/home-assistant:stable
           ports:
             - containerPort: 8123
               name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+          startupProbe:
+            httpGet:
+              path: /api/
+              port: 8123
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/
+              port: 8123
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/
+              port: 8123
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
           volumeMounts:
             - name: config
               mountPath: /config
