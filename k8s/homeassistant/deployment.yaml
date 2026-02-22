@@ -31,6 +31,9 @@ spec:
               name: http
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           startupProbe:
             httpGet:
               path: /api/

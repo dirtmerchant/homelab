@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cert-manager-webhook
+  namespace: cert-manager
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: webhook
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow webhook port from anywhere — kube-apiserver source IPs vary
+    - ports:
+        - protocol: TCP
+          port: 10250
+  egress:
+    # Unrestricted egress — cert-manager needs kube-apiserver on 6443,
+    # ACME servers on 443, DNS on 53, and various internal components.
+    - {}
