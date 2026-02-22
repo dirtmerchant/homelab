@@ -35,19 +35,16 @@ spec:
               drop:
                 - ALL
           startupProbe:
-            httpGet:
-              path: /api/
+            tcpSocket:
               port: 8123
             failureThreshold: 30
             periodSeconds: 10
           readinessProbe:
-            httpGet:
-              path: /api/
+            tcpSocket:
               port: 8123
             periodSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /api/
+            tcpSocket:
               port: 8123
             periodSeconds: 30
           resources:
