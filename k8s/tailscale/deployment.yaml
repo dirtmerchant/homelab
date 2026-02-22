@@ -15,7 +15,6 @@ spec:
       labels:
         app: tailscale
     spec:
-      automountServiceAccountToken: false
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
@@ -36,7 +35,6 @@ spec:
             - name: TS_KUBE_SECRET
               value: ""
           securityContext:
-            allowPrivilegeEscalation: false
             seccompProfile:
               type: RuntimeDefault
             capabilities:
@@ -45,6 +43,7 @@ spec:
               add:
                 - NET_ADMIN
                 - NET_RAW
+                - MKNOD
           resources:
             requests:
               cpu: 50m
