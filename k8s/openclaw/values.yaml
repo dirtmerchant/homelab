@@ -92,9 +92,8 @@ app-template:
       enabled: false
 
   # Mitigation: NetworkPolicy for cluster isolation
-  # Requires a NetworkPolicy-capable CNI (e.g., kube-router in policy-only mode).
-  # k3s default Flannel does NOT enforce NetworkPolicy without an additional controller.
-  # See: https://docs.k3s.io/networking/network-policy
+  # k3s embeds kube-router's network policy controller by default.
+  # Ensure k3s was NOT started with --disable-network-policy.
   networkpolicies:
     main:
       enabled: true
