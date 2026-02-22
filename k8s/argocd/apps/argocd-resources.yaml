@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: monitoring-ingress
+  name: argocd-resources
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -10,12 +10,12 @@ spec:
   source:
     repoURL: https://github.com/dirtmerchant/homelab.git
     targetRevision: main
-    path: k8s/monitoring
+    path: k8s/argocd
     directory:
       include: "{ingress,networkpolicy}.yaml"
   destination:
     server: https://kubernetes.default.svc
-    namespace: monitoring
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
