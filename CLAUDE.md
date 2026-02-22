@@ -48,6 +48,12 @@ DNS: Pi-hole (192.168.1.200) primary, Google (8.8.8.8) fallback
   - To trust the CA, export: `kubectl get secret homelab-ca-key-pair -n cert-manager -o jsonpath='{.data.ca\.crt}' | base64 -d`
   - Prometheus ServiceMonitor enabled (requires `release: monitoring` label)
   - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
+- **OpenClaw** — AI assistant in `openclaw` namespace
+  - UI: `openclaw.homelab.bertbullough.com` via Traefik (port 18789)
+  - Helm chart from `serhanekicii.github.io/openclaw-helm`, managed by ArgoCD
+  - 5Gi PVC on local-path for `/home/node/.openclaw`
+  - Hardened: NetworkPolicy (ingress from Traefik only, egress to public internet only), `automountServiceAccountToken: false`, web tools disabled
+  - Requires `openclaw-env-secret` secret with `ANTHROPIC_API_KEY`
 - **Pi-hole** v6 — `pihole` namespace
   - DNS: LoadBalancer IP 192.168.1.200 (port 53 TCP/UDP)
   - Web admin: `pihole.homelab.bertbullough.com` via Traefik (admin/admin)
@@ -68,6 +74,7 @@ Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
 | `hass.homelab.bertbullough.com` | Home Assistant |
 | `pihole.homelab.bertbullough.com` | Pi-hole admin |
 | `argocd.homelab.bertbullough.com` | ArgoCD UI |
+| `openclaw.homelab.bertbullough.com` | OpenClaw AI assistant |
 
 ## Repository Structure
 
@@ -76,6 +83,7 @@ Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
 - `k8s/cert-manager/` — cert-manager Helm values + resources (CA chain, wildcard Certificate, TLSStore)
 - `k8s/monitoring/` — Helm values for kube-prometheus-stack, Grafana IngressRoute
 - `k8s/homeassistant/` — Home Assistant deployment manifests, IngressRoute
+- `k8s/openclaw/` — OpenClaw AI assistant Helm values, IngressRoute
 - `k8s/pihole/` — Pi-hole DNS ad-blocker deployment, DNS LoadBalancer, IngressRoute
 - `k8s/argocd/` — ArgoCD GitOps controller (Helm values, IngressRoute, app-of-apps definitions)
 - `.github/workflows/` — GitHub Actions CI (YAML lint + kubeconform validation)

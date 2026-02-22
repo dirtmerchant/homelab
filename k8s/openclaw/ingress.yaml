@@ -1,0 +1,15 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: openclaw
+  namespace: openclaw
+spec:
+  entryPoints:
+    - websecure
+  tls: {}
+  routes:
+    - match: Host(`openclaw.homelab.bertbullough.com`)
+      kind: Rule
+      services:
+        - name: openclaw
+          port: 18789

@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openclaw
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/dirtmerchant/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://serhanekicii.github.io/openclaw-helm
+      chart: openclaw
+      targetRevision: 1.3.*
+      helm:
+        valueFiles:
+          - $values/k8s/openclaw/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openclaw
+  ignoreDifferences:
+    - group: ""
+      kind: ConfigMap
+      name: openclaw-config
+      jsonPointers:
+        - /data
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

@@ -1,0 +1,139 @@
+app-template:
+  configMode: merge
+
+  defaultPodOptions:
+    # Mitigation: Prevent pods from accessing the Kubernetes API
+    automountServiceAccountToken: false
+    securityContext:
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+
+  controllers:
+    main:
+      containers:
+        main:
+          envFrom:
+            - secretRef:
+                name: openclaw-env-secret
+
+  configMaps:
+    config:
+      enabled: true
+      data:
+        openclaw.json: |
+          {
+            "gateway": {
+              "port": 18789,
+              "mode": "local"
+            },
+            "browser": {
+              "enabled": true,
+              "defaultProfile": "default",
+              "profiles": {
+                "default": {
+                  "cdpUrl": "http://localhost:9222",
+                  "color": "#4285F4"
+                }
+              }
+            },
+            "agents": {
+              "defaults": {
+                "workspace": "/home/node/.openclaw/workspace",
+                "model": {
+                  "primary": "anthropic/claude-sonnet-4-5-20250929"
+                },
+                "userTimezone": "America/Denver",
+                "timeoutSeconds": 600,
+                "maxConcurrent": 1
+              },
+              "list": [
+                {
+                  "id": "main",
+                  "default": true,
+                  "identity": {
+                    "name": "OpenClaw",
+                    "emoji": "\ud83e\udde0"
+                  }
+                }
+              ]
+            },
+            "session": {
+              "scope": "per-sender",
+              "store": "/home/node/.openclaw/sessions",
+              "reset": {
+                "mode": "idle",
+                "idleMinutes": 60
+              }
+            },
+            "logging": {
+              "level": "info",
+              "consoleLevel": "info",
+              "consoleStyle": "compact",
+              "redactSensitive": "tools"
+            },
+            // Mitigation: Restrict tool access - web search and fetch disabled
+            // to prevent the agent from reaching internal services via HTTP.
+            // Network policy is the primary enforcement; this is defense-in-depth.
+            "tools": {
+              "profile": "full",
+              "web": {
+                "search": {
+                  "enabled": false
+                },
+                "fetch": {
+                  "enabled": false
+                }
+              }
+            }
+          }
+
+  ingress:
+    main:
+      enabled: false
+
+  # Mitigation: NetworkPolicy for cluster isolation
+  # Requires a NetworkPolicy-capable CNI (e.g., kube-router in policy-only mode).
+  # k3s default Flannel does NOT enforce NetworkPolicy without an additional controller.
+  # See: https://docs.k3s.io/networking/network-policy
+  networkpolicies:
+    main:
+      enabled: true
+      controller: main
+      policyTypes:
+        - Ingress
+        - Egress
+      rules:
+        ingress:
+          # Only allow inbound traffic from Traefik ingress controller
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: traefik
+            ports:
+              - protocol: TCP
+                port: 18789
+        egress:
+          # Allow DNS resolution (CoreDNS in kube-system)
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: kube-system
+                podSelector:
+                  matchLabels:
+                    k8s-app: kube-dns
+            ports:
+              - protocol: UDP
+                port: 53
+              - protocol: TCP
+                port: 53
+          # Mitigation: Block egress to all private/internal IP ranges.
+          # Only public internet is reachable (for LLM API calls, etc.)
+          - to:
+              - ipBlock:
+                  cidr: 0.0.0.0/0
+                  except:
+                    - 10.0.0.0/8
+                    - 172.16.0.0/12
+                    - 192.168.0.0/16
+                    - 169.254.0.0/16
+                    - 100.64.0.0/10
