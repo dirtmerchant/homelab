@@ -34,10 +34,9 @@ spec:
               name: dns-udp
               protocol: UDP
           securityContext:
-            allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-              add: [NET_BIND_SERVICE, CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+              add: [NET_BIND_SERVICE, CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, SETFCAP]
           startupProbe:
             httpGet:
               path: /admin/
