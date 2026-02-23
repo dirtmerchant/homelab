@@ -30,6 +30,7 @@ app-template:
                 httpGet:
                   path: /
                   port: 18789
+                tcpSocket: null
                 failureThreshold: 30
                 periodSeconds: 10
             readiness:
@@ -39,6 +40,7 @@ app-template:
                 httpGet:
                   path: /
                   port: 18789
+                tcpSocket: null
                 periodSeconds: 10
             liveness:
               enabled: true
@@ -47,6 +49,7 @@ app-template:
                 httpGet:
                   path: /
                   port: 18789
+                tcpSocket: null
                 periodSeconds: 30
           resources:
             requests:
