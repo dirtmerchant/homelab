@@ -13,7 +13,7 @@ spec:
       ref: values
     - repoURL: https://serhanekicii.github.io/openclaw-helm
       chart: openclaw
-      targetRevision: 1.3.*
+      targetRevision: 1.4.*
       helm:
         valueFiles:
           - $values/k8s/openclaw/values.yaml
