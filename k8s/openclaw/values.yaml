@@ -41,7 +41,10 @@ app-template:
           {
             "gateway": {
               "port": 18789,
-              "mode": "local"
+              "mode": "local",
+              "controlUi": {
+                "allowedOrigins": ["https://openclaw.homelab.bertbullough.com"]
+              }
             },
             "browser": {
               "enabled": true,
