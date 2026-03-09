@@ -55,11 +55,29 @@ kubectl logs -n openclaw -l app.kubernetes.io/name=openclaw
 kubectl get networkpolicy -n openclaw
 ```
 
-### 5. Access the UI
+### 5. Approve your device
+
+OpenClaw runs in LAN bind mode with token authentication. On first connect, your browser sends a pairing request that must be approved:
+
+```bash
+# List pending device requests
+kubectl exec -n openclaw deploy/openclaw -c main -- openclaw devices list
+
+# Approve by request ID
+kubectl exec -n openclaw deploy/openclaw -c main -- openclaw devices approve <requestId>
+```
+
+### 6. Access the UI
 
 Open `https://openclaw.homelab.bertbullough.com` in a browser.
 
 Requires Pi-hole DNS (192.168.1.200) or manual `/etc/hosts` entry pointing the hostname to 192.168.1.202 (Traefik LB IP).
+
+On macOS, ensure Pi-hole is your primary DNS server (the router's IPv6 DNS may take priority otherwise):
+
+```bash
+networksetup -setdnsservers Wi-Fi 192.168.1.200
+```
 
 ## Workload Isolation
 
@@ -94,3 +112,6 @@ kubectl rollout restart deployment openclaw -n openclaw
 | ArgoCD app `Unknown` sync | Helm template error | Check `kubectl get app openclaw -n argocd -o jsonpath='{.status.operationState.message}'` |
 | Pod running but UI unreachable | DNS not resolving | Verify Pi-hole has `openclaw.homelab.bertbullough.com` in `custom-dns.yaml` |
 | Pod can't reach Anthropic API | NetworkPolicy egress | Verify egress allows `0.0.0.0/0` minus private ranges |
+| `Disconnected from gateway` / `unauthorized` | Device not approved | Run `kubectl exec -n openclaw deploy/openclaw -c main -- openclaw devices list` and approve |
+| DNS resolves on Pi-hole but not on Mac | Router IPv6 DNS takes priority | Run `networksetup -setdnsservers Wi-Fi 192.168.1.200` |
+| Traefik 404 with correct DNS | Cross-namespace middleware blocked | Ensure `--providers.kubernetescrd.allowCrossNamespace=true` in Traefik args |
