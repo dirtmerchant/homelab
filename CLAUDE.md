@@ -18,7 +18,8 @@ DNS: Pi-hole (192.168.1.200) primary, Google (8.8.8.8) fallback
 ## k3s
 
 - Version: v1.34.3+k3s1
-- Installed with `--cluster-init --disable traefik --disable servicelb`
+- Installed with `--cluster-init --disable traefik --disable servicelb --secrets-encryption`
+- Secrets encryption at rest: AES-CBC (enabled on nuc1)
 - Kubeconfig: `~/.kube/config` (local Mac)
 
 ## Cluster Add-ons
@@ -27,9 +28,9 @@ DNS: Pi-hole (192.168.1.200) primary, Google (8.8.8.8) fallback
 - **Traefik** v2.11 — Ingress controller in `traefik` namespace
   - LoadBalancer IP: 192.168.1.202
   - All services route through Traefik by hostname with TLS (HTTP redirects to HTTPS)
-  - Dashboard: `traefik.homelab.bertbullough.com`
+  - Dashboard: `traefik.homelab.bertbullough.com` (basicAuth via `traefik-dashboard-auth` secret)
 - **kube-prometheus-stack** — Helm release `monitoring` in `monitoring` namespace
-  - Grafana: `grafana.homelab.bertbullough.com` via Traefik (admin/admin)
+  - Grafana: `grafana.homelab.bertbullough.com` via Traefik (credentials in `grafana-admin-secret`)
   - Prometheus: 30d retention, 20Gi storage
 - **Home Assistant** — `homeassistant` namespace
   - UI: `hass.homelab.bertbullough.com` via Traefik (port 80)

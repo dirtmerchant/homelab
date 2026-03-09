@@ -11,6 +11,8 @@ spec:
     - match: Host(`traefik.homelab.bertbullough.com`)
       kind: Rule
       middlewares:
+        - name: dashboard-auth
+          namespace: traefik
         - name: security-headers
           namespace: traefik
       services:
