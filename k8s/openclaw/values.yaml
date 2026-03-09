@@ -22,32 +22,6 @@ app-template:
               drop: [ALL]
             seccompProfile:
               type: RuntimeDefault
-          probes:
-            startup:
-              enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /
-                  port: 18789
-                failureThreshold: 30
-                periodSeconds: 10
-            readiness:
-              enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /
-                  port: 18789
-                periodSeconds: 10
-            liveness:
-              enabled: true
-              custom: true
-              spec:
-                httpGet:
-                  path: /
-                  port: 18789
-                periodSeconds: 30
           resources:
             requests:
               cpu: 100m
