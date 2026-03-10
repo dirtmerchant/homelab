@@ -30,8 +30,7 @@ app-template:
               cpu: 500m
               memory: 1Gi
           env:
-            - name: NODE_OPTIONS
-              value: "--max-old-space-size=768"
+            NODE_OPTIONS: "--max-old-space-size=768"
           envFrom:
             - secretRef:
                 name: openclaw-env-secret
