@@ -27,10 +27,10 @@ app-template:
               cpu: 100m
               memory: 256Mi
             limits:
-              cpu: 500m
-              memory: 1Gi
+              cpu: "1"
+              memory: 2Gi
           env:
-            NODE_OPTIONS: "--max-old-space-size=768"
+            NODE_OPTIONS: "--max-old-space-size=1536"
           envFrom:
             - secretRef:
                 name: openclaw-env-secret
