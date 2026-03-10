@@ -1,0 +1,10 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: openclaw-ip-allowlist
+  namespace: openclaw
+spec:
+  ipAllowList:
+    sourceRange:
+      - 100.64.0.0/10
+      - 192.168.1.0/24

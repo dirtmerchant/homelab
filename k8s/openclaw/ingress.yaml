@@ -11,6 +11,8 @@ spec:
     - match: Host(`openclaw.homelab.bertbullough.com`)
       kind: Rule
       middlewares:
+        - name: openclaw-ip-allowlist
+          namespace: openclaw
         - name: security-headers
           namespace: traefik
       services:
