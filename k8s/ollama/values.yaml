@@ -1,0 +1,30 @@
+ollama:
+  gpu:
+    enabled: false
+  models:
+    pull:
+      - qwen2.5-coder:7b
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 4Gi
+  limits:
+    cpu: "4"
+    memory: 8Gi
+
+persistentVolume:
+  enabled: true
+  size: 20Gi
+  storageClass: local-path
+  accessModes:
+    - ReadWriteOnce
+
+livenessProbe:
+  initialDelaySeconds: 120
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 30

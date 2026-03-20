@@ -31,9 +31,6 @@ app-template:
               memory: 2Gi
           env:
             NODE_OPTIONS: "--max-old-space-size=1536"
-          envFrom:
-            - secretRef:
-                name: openclaw-env-secret
 
   configMaps:
     config:
@@ -41,6 +38,14 @@ app-template:
       data:
         openclaw.json: |
           {
+            "models": {
+              "providers": {
+                "ollama": {
+                  "type": "openai",
+                  "baseUrl": "http://ollama.ollama.svc.cluster.local:11434/v1"
+                }
+              }
+            },
             "gateway": {
               "port": 18789,
               "mode": "local",
@@ -62,7 +67,7 @@ app-template:
               "defaults": {
                 "workspace": "/home/node/.openclaw/workspace",
                 "model": {
-                  "primary": "anthropic/claude-sonnet-4-5-20250929"
+                  "primary": "ollama/qwen2.5-coder:7b"
                 },
                 "userTimezone": "America/Denver",
                 "timeoutSeconds": 600,
@@ -147,6 +152,14 @@ app-template:
                 port: 53
               - protocol: TCP
                 port: 53
+          # Allow egress to Ollama LLM service
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: ollama
+            ports:
+              - protocol: TCP
+                port: 11434
           # Mitigation: Block egress to all private/internal IP ranges.
           # Only public internet is reachable (for LLM API calls, etc.)
           - to:
