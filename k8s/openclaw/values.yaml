@@ -41,8 +41,20 @@ app-template:
             "models": {
               "providers": {
                 "ollama": {
-                  "type": "openai",
-                  "baseUrl": "http://ollama.ollama.svc.cluster.local:11434/v1"
+                  "api": "ollama",
+                  "apiKey": "ollama-local",
+                  "baseUrl": "http://ollama.ollama.svc.cluster.local:11434",
+                  "models": [
+                    {
+                      "id": "qwen2.5-coder:7b",
+                      "name": "Qwen 2.5 Coder 7B",
+                      "reasoning": false,
+                      "input": ["text"],
+                      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                      "contextWindow": 32768,
+                      "maxTokens": 32768
+                    }
+                  ]
                 }
               }
             },
