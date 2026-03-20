@@ -3,15 +3,15 @@ ollama:
     enabled: false
   models:
     pull:
-      - qwen2.5-coder:7b
+      - qwen2.5-coder:3b
 
 resources:
   requests:
     cpu: "1"
-    memory: 6Gi
+    memory: 3Gi
   limits:
     cpu: "4"
-    memory: 12Gi
+    memory: 6Gi
 
 persistentVolume:
   enabled: true

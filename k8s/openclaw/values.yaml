@@ -46,8 +46,8 @@ app-template:
                   "baseUrl": "http://ollama.ollama.svc.cluster.local:11434",
                   "models": [
                     {
-                      "id": "qwen2.5-coder:7b",
-                      "name": "Qwen 2.5 Coder 7B",
+                      "id": "qwen2.5-coder:3b",
+                      "name": "Qwen 2.5 Coder 3B",
                       "reasoning": false,
                       "input": ["text"],
                       "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
@@ -79,7 +79,7 @@ app-template:
               "defaults": {
                 "workspace": "/home/node/.openclaw/workspace",
                 "model": {
-                  "primary": "ollama/qwen2.5-coder:7b"
+                  "primary": "ollama/qwen2.5-coder:3b"
                 },
                 "userTimezone": "America/Denver",
                 "timeoutSeconds": 600,
