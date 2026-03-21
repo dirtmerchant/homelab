@@ -61,6 +61,7 @@ app-template:
             "gateway": {
               "port": 18789,
               "mode": "local",
+              "trustedProxies": ["10.42.0.0/16"],
               "controlUi": {
                 "allowedOrigins": ["https://openclaw.homelab.bertbullough.com"]
               }
