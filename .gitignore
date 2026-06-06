@@ -18,6 +18,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Claude Code local settings (may contain session tokens)
+.claude/settings.local.json
+
 # Terraform
 .terraform/
 *.tfstate

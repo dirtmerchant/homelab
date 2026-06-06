@@ -19,7 +19,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: tailscale
-          image: tailscale/tailscale:latest
+          image: tailscale/tailscale:v1.98.4
           env:
             - name: TS_AUTHKEY
               valueFrom:
