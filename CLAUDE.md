@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Homelab infrastructure repository for a 3-node k3s Kubernetes cluster running on Intel NUC7i7BNH machines (32GB RAM, 256GB SSD each, Ubuntu Server 24.04).
+Homelab infrastructure repository for a 3-node k3s Kubernetes cluster running on Intel NUC7i7BNH machines (32GB RAM, 256GB SSD each, Ubuntu Server 24.04). All cluster state is declarative YAML in `k8s/`, managed by ArgoCD GitOps.
 
 ## Cluster Nodes
 
@@ -13,87 +13,76 @@ Homelab infrastructure repository for a 3-node k3s Kubernetes cluster running on
 - nuc3: 192.168.1.22 (k3s agent — worker)
 
 SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
-DNS: Pi-hole (192.168.1.200) primary, Google (8.8.8.8) fallback
+Kubeconfig: `~/.kube/config` (local Mac)
 
-## k3s
+## Validation Commands
 
-- Version: v1.34.3+k3s1
-- Installed with `--cluster-init --disable traefik --disable servicelb --secrets-encryption`
-- Secrets encryption at rest: AES-CBC (enabled on nuc1)
-- Kubeconfig: `~/.kube/config` (local Mac)
+Run these locally before pushing. CI runs them on PRs automatically.
 
-## Cluster Add-ons
+```bash
+# Lint all YAML (uses .yamllint.yaml config, max 200 char lines)
+yamllint -c .yamllint.yaml k8s/
 
-- **MetalLB** v0.14.9 — L2 mode, IP pool 192.168.1.200–250
-- **Traefik** v2.11 — Ingress controller in `traefik` namespace
-  - LoadBalancer IP: 192.168.1.202
-  - All services route through Traefik by hostname with TLS (HTTP redirects to HTTPS)
-  - Dashboard: `traefik.homelab.bertbullough.com` (basicAuth via `traefik-dashboard-auth` secret)
-- **kube-prometheus-stack** — Helm release `monitoring` in `monitoring` namespace
-  - Grafana: `grafana.homelab.bertbullough.com` via Traefik (credentials in `grafana-admin-secret`)
-  - Prometheus: 30d retention, 20Gi storage
-- **Home Assistant** — `homeassistant` namespace
-  - UI: `hass.homelab.bertbullough.com` via Traefik (port 80)
-  - 10Gi PVC on local-path for `/config`
-  - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
-- **ArgoCD** — GitOps controller in `argocd` namespace
-  - UI: `argocd.homelab.bertbullough.com` via Traefik
-  - Helm release `argocd` (argo/argo-cd), non-HA, `server.insecure: true`
-  - App-of-apps pattern: `k8s/argocd/apps/root.yaml` manages all child Applications
-  - Auto-syncs all `k8s/` components from `main` branch
-- **cert-manager** — `cert-manager` namespace
-  - Helm chart from jetstack, managed by ArgoCD
-  - Self-signed CA issuing wildcard cert for `*.homelab.bertbullough.com`
-  - CA chain: self-signed ClusterIssuer → CA Certificate → CA ClusterIssuer → wildcard cert
-  - TLSStore `default` in `traefik` namespace auto-applies cert to all `tls: {}` IngressRoutes
-  - To trust the CA, export: `kubectl get secret homelab-ca-key-pair -n cert-manager -o jsonpath='{.data.ca\.crt}' | base64 -d`
-  - Prometheus ServiceMonitor enabled (requires `release: monitoring` label)
-  - Grafana dashboard: provisioned via ConfigMap (`grafana-dashboard.yaml`)
-- **Pi-hole** v6 — `pihole` namespace
-  - DNS: LoadBalancer IP 192.168.1.200 (port 53 TCP/UDP)
-  - Web admin: `pihole.homelab.bertbullough.com` via Traefik (admin/admin)
-  - PVCs on local-path: 1Gi for `/etc/pihole`, 500Mi for `/etc/dnsmasq.d`
-  - Custom DNS: `custom-dns.yaml` ConfigMap with dnsmasq `address=` entries for `*.homelab.bertbullough.com` hostnames
-- **Tailscale** — Subnet router in `tailscale` namespace
-  - Advertises 192.168.1.0/24 for remote access to all LAN/cluster services
-  - `hostNetwork: true`, kernel WireGuard (`TS_USERSPACE=false`)
-  - Requires `tailscale-auth` secret with `TS_AUTHKEY` (reusable auth key)
-  - Routes must be approved in Tailscale admin console after deployment
+# Validate manifests against k8s schemas (excludes longhorn/, values.yaml, skips ArgoCD CRDs)
+find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
+  | xargs kubeconform -strict -kubernetes-version 1.34.0 \
+    -schema-location default \
+    -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceVersion}}.json' \
+    -skip ArgoCD,Application -summary
+```
 
-## Ingress Routing
+## Deployment Workflow
 
-All HTTPS traffic routes through Traefik at 192.168.1.202 using hostname-based routing. HTTP requests are automatically redirected to HTTPS.
-Wildcard TLS certificate (`*.homelab.bertbullough.com`) issued by a self-signed CA via cert-manager.
-Hostnames are resolved automatically by Pi-hole DNS (192.168.1.200) via custom dnsmasq records.
-Set your device or router DNS to 192.168.1.200 to resolve these hostnames:
+1. Push changes to `main` branch (or merge a PR)
+2. ArgoCD auto-syncs all Applications from `k8s/` — no manual `kubectl apply` needed
+3. Only `k8s/argocd/apps/root.yaml` was ever manually applied; it bootstraps everything else
 
-| Hostname | Service |
-|---|---|
-| `traefik.homelab.bertbullough.com` | Traefik dashboard |
-| `grafana.homelab.bertbullough.com` | Grafana |
-| `hass.homelab.bertbullough.com` | Home Assistant |
-| `pihole.homelab.bertbullough.com` | Pi-hole admin |
-| `argocd.homelab.bertbullough.com` | ArgoCD UI |
+## ArgoCD App-of-Apps Architecture
 
-## Repository Structure
+`k8s/argocd/apps/root.yaml` watches `k8s/argocd/apps/` and manages all child Application resources. Sync waves control deployment order:
 
-- `k8s/metallb/` — MetalLB IP pool and L2 advertisement manifests
-- `k8s/traefik/` — Traefik ingress controller deployment and IngressRoutes
-- `k8s/cert-manager/` — cert-manager Helm values + resources (CA chain, wildcard Certificate, TLSStore)
-- `k8s/monitoring/` — Helm values for kube-prometheus-stack, Grafana IngressRoute
-- `k8s/homeassistant/` — Home Assistant deployment manifests, IngressRoute
-- `k8s/pihole/` — Pi-hole DNS ad-blocker deployment, DNS LoadBalancer, IngressRoute
-- `k8s/tailscale/` — Tailscale subnet router for remote LAN access
-- `k8s/argocd/` — ArgoCD GitOps controller (Helm values, IngressRoute, app-of-apps definitions)
-- `.github/workflows/` — GitHub Actions CI (YAML lint + kubeconform validation)
-- `SETUP.md` — Full setup documentation and node configuration details
+| Wave | Applications |
+|------|-------------|
+| -3 | namespaces |
+| -2 | metallb |
+| -1 | traefik |
+| 0 | cert-manager, monitoring, pihole, homeassistant, ollama, longhorn, tailscale |
+| 1 | cert-manager-resources (depends on cert-manager CRDs existing) |
+| 2 | argocd-resources, monitoring-ingress |
+
+**Two app patterns exist in `k8s/argocd/apps/`:**
+
+1. **Plain manifests** (pihole, homeassistant, traefik, metallb, tailscale): `source.path` points to a `k8s/<name>/` directory containing raw YAML.
+2. **Multi-source Helm** (cert-manager, monitoring, ollama, argocd): Uses `sources[]` with a git `ref: values` source and a Helm chart source that references `$values/k8s/<name>/values.yaml`. Only the `values.yaml` file lives in this repo; the chart comes from an upstream Helm repo.
+
+## Adding a New Service
+
+1. Create `k8s/<name>/` with deployment manifests (or just `values.yaml` for Helm apps)
+2. Add a namespace entry to `k8s/namespaces.yaml` with pod security labels
+3. Create an ArgoCD Application in `k8s/argocd/apps/<name>.yaml` (sync wave 0 for most apps)
+4. If the service needs an ingress hostname:
+   - Add a Traefik IngressRoute with `tls: {}` (wildcard cert auto-applies)
+   - Add a DNS entry in `k8s/pihole/custom-dns.yaml` pointing the hostname to 192.168.1.202
+5. If the service needs a NetworkPolicy, add one in `k8s/<name>/networkpolicy.yaml`
+
+## Key Conventions
+
+- **Pod security**: Non-privileged workloads use `runAsNonRoot: true`, drop `ALL` capabilities, `RuntimeDefault` seccomp. See `k8s/namespaces.yaml` for per-namespace enforcement levels.
+- **Storage**: All PVCs use `local-path` storage class (k3s default).
+- **Ingress**: All services route through Traefik (192.168.1.202) with hostname-based routing. Wildcard TLS cert from self-signed CA via cert-manager auto-applies to any IngressRoute with `tls: {}`.
+- **DNS**: Pi-hole (192.168.1.200) resolves `*.homelab.bertbullough.com` via dnsmasq records in `k8s/pihole/custom-dns.yaml`.
+- **Monitoring labels**: ServiceMonitors require `release: monitoring` label to be picked up by Prometheus.
+- **Network policies**: Most services have a `networkpolicy.yaml` restricting ingress to Traefik and monitoring namespaces.
 
 ## CI/CD
 
-- **GitHub Actions** — PR validation workflow (`.github/workflows/validate.yaml`)
-  - yamllint: lints all YAML in `k8s/` (excludes `k8s/longhorn/`)
-  - kubeconform: validates manifests against k8s 1.34.0 schemas + CRD catalog
-- **ArgoCD** — GitOps auto-sync from `main` branch
-  - Only `k8s/argocd/apps/root.yaml` is manually applied; everything else is managed
-  - Sync waves: namespaces (-3) → MetalLB (-2) → Traefik (-1) → apps (0) → cert-manager-resources (1) → monitoring-ingress (2)
-  - Monitoring uses multi-source (Helm chart + git values)
+- **GitHub Actions** (`.github/workflows/validate.yaml`): Runs yamllint + kubeconform on PRs touching `k8s/`
+- **ArgoCD**: Auto-syncs from `main` with `prune: true` and `selfHeal: true` on all Applications
+
+## Key IPs
+
+| IP | Service |
+|---|---|
+| 192.168.1.200 | Pi-hole DNS (LoadBalancer) |
+| 192.168.1.202 | Traefik ingress (LoadBalancer) |
+| 192.168.1.200–250 | MetalLB L2 pool |
