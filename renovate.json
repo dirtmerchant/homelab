@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "kubernetes": {
+    "managerFilePatterns": [
+      "/k8s/.+\\.yaml$/"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "Pin digests for all Docker images",
+      "matchDatasources": ["docker"],
+      "pinDigests": true
+    },
+    {
+      "description": "Automerge patch updates for Docker images",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "Group Traefik minor updates (stay on v2.11.x)",
+      "matchPackageNames": ["traefik"],
+      "allowedVersions": "/^v?2\\.11\\./",
+      "groupName": "traefik"
+    }
+  ]
+}
