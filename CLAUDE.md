@@ -95,7 +95,7 @@ These secrets are not in Git and must be created manually on the cluster before 
 
 ## Synology NAS (DS218+)
 
-IP: 192.168.1.183, SSH access: `ssh nas` (key-only, passwordless sudo via `/etc/sudoers.d/bert`)
+IP: 192.168.1.10, SSH access: `ssh nas` (key-only, passwordless sudo via `/etc/sudoers.d/bert`)
 
 **Security hardening applied (2026-06-06):**
 
@@ -123,7 +123,7 @@ IP: 192.168.1.183, SSH access: `ssh nas` (key-only, passwordless sudo via `/etc/
 
 | IP | Service |
 |---|---|
-| 192.168.1.183 | Synology NAS (DSM) |
+| 192.168.1.10 | Synology NAS (DSM) |
 | 192.168.1.200 | Pi-hole DNS (LoadBalancer) |
 | 192.168.1.202 | Traefik ingress (LoadBalancer) |
 | 192.168.1.200–250 | MetalLB L2 pool |
