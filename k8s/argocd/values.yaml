@@ -11,6 +11,7 @@ global:
 
 configs:
   params:
+    # TLS terminated at Traefik; in-cluster traffic only (secured by NetworkPolicy)
     server.insecure: true
 
 server:

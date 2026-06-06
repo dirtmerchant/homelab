@@ -20,7 +20,82 @@ spec:
         - protocol: TCP
           port: 3000
   egress:
-    # Unrestricted egress — Prometheus needs to scrape all pods/nodes on
-    # dynamic ports, reach kube-apiserver, etc. Grafana queries Prometheus
-    # and datasources on various ports.
+    # Grafana queries Prometheus and datasources on various ports
     - {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow Grafana to query Prometheus (same namespace)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+      ports:
+        - protocol: TCP
+          port: 9090
+    # Allow Alertmanager to reach Prometheus (same namespace)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alertmanager
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    # Unrestricted egress — Prometheus scrapes all pods/nodes
+    # on dynamic ports across all namespaces
+    - {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alertmanager
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow Prometheus to push alerts (same namespace)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9093
+  egress:
+    # DNS for alert routing
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # HTTPS for webhook/email alert delivery
+    - ports:
+        - protocol: TCP
+          port: 443
+    # Alertmanager cluster peering (same namespace)
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alertmanager
+      ports:
+        - protocol: TCP
+          port: 9094
+        - protocol: UDP
+          port: 9094

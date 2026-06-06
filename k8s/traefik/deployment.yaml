@@ -73,6 +73,7 @@ spec:
             - --entrypoints.websecure.address=:443
             - --entrypoints.traefik.address=:9000
             - --providers.kubernetescrd
+            # Required: security-headers middleware in traefik ns is referenced by all IngressRoutes
             - --providers.kubernetescrd.allowCrossNamespace=true
             - --providers.kubernetesingress
             - --log.level=INFO
