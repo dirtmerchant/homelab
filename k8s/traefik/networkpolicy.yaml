@@ -11,14 +11,15 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow HTTP, HTTPS, and dashboard from anywhere
+    # Allow HTTP, HTTPS, and ping/metrics from anywhere
+    # Port 9000 exposes only /ping (health probes + monitoring)
     - ports:
         - protocol: TCP
           port: 80
         - protocol: TCP
           port: 443
         - protocol: TCP
-          port: 8080
+          port: 9000
   egress:
     # Unrestricted egress — Traefik must reach all backend services
     # across all namespaces.

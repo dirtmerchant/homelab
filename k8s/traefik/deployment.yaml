@@ -65,12 +65,13 @@ spec:
           image: traefik:v2.11.49
           args:
             - --api.dashboard=true
-            - --api.insecure=true
             - --ping
+            - --ping.entryPoint=traefik
             - --entrypoints.web.address=:80
             - --entrypoints.web.http.redirections.entryPoint.to=websecure
             - --entrypoints.web.http.redirections.entryPoint.scheme=https
             - --entrypoints.websecure.address=:443
+            - --entrypoints.traefik.address=:9000
             - --providers.kubernetescrd
             - --providers.kubernetescrd.allowCrossNamespace=true
             - --providers.kubernetesingress
@@ -80,8 +81,8 @@ spec:
               containerPort: 80
             - name: websecure
               containerPort: 443
-            - name: dashboard
-              containerPort: 8080
+            - name: traefik
+              containerPort: 9000
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -101,13 +102,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /ping
-              port: 8080
+              port: 9000
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /ping
-              port: 8080
+              port: 9000
             initialDelaySeconds: 5
             periodSeconds: 10
       volumes:
