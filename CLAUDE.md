@@ -8,7 +8,7 @@ Homelab infrastructure repository for a 3-node k3s Kubernetes cluster running on
 
 ## Cluster Nodes
 
-3-node k3s cluster on Intel NUC7i7BNH machines: one server (control-plane + etcd), two agents. SSH aliases configured in `~/.ssh/config` (key-only, passwordless sudo). See `CLAUDE.local.md` for IPs, MACs, and access details.
+3-node k3s cluster on Intel NUC7i7BNH machines: one server (control-plane + etcd), two agents. SSH aliases configured in `~/.ssh/config` (key-only, passwordless sudo). SSH keys are managed by 1Password — no private key material on disk. The 1Password SSH agent serves the "Homelab SSH Key" (Ed25519) from the Homelab vault via `~/.config/1Password/ssh/agent.toml`. See `CLAUDE.local.md` for IPs, MACs, and access details.
 
 ## Validation Commands
 
@@ -101,6 +101,8 @@ The ArgoCD repo secret (`homelab-repo` in `argocd` namespace) must also be creat
 **1Password item setup:** Each item must exist in the "Homelab" vault with the exact title and field names listed above. ESO uses the SDK provider's `item/field` path syntax (e.g., `pihole/webpassword`). Note: the ArgoCD repo URL is stored as `repo-url` (not `url`) because 1Password treats fields named `url` as URL objects rather than text fields.
 
 **Rotating the GitHub PAT:** Update the `password` field in the `argocd-repo` 1Password item, then restart the ESO controller to clear the SDK cache: `kubectl rollout restart deployment/external-secrets -n external-secrets`. ESO will sync the new PAT to the cluster within ~30s of the restart. Revoke the old PAT in GitHub after confirming ArgoCD still syncs.
+
+**Rotating SSH keys:** Generate a new Ed25519 SSH key in the 1Password desktop app (Homelab vault), enable it for the SSH agent, and update `~/.config/1Password/ssh/agent.toml` to reference the new item. Deploy the new public key to all hosts (`nuc1-3`, `nas`) via `op item get "<name>" --vault Homelab --fields "public key"`, then remove the old key from each host's `~/.ssh/authorized_keys`.
 
 **Architecture:** ClusterSecretStore `onepassword` connects to 1Password API via service account token. ExternalSecrets for pihole and tailscale live alongside their services; grafana, traefik, and argocd-repo ExternalSecrets live in `k8s/external-secrets/resources/` (they target namespaces different from the deploying app).
 
