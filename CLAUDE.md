@@ -12,8 +12,9 @@ Homelab infrastructure repository for a 3-node k3s Kubernetes cluster running on
 - nuc2: 192.168.1.21 (k3s agent — worker)
 - nuc3: 192.168.1.22 (k3s agent — worker)
 
-SSH access: `ssh bert@<ip>` (key-only, passwordless sudo)
+SSH access: `ssh nuc1`, `ssh nuc2`, `ssh nuc3` (aliases in `~/.ssh/config`, key-only, passwordless sudo)
 Kubeconfig: `~/.kube/config` (local Mac)
+Versions: k3s v1.34.3+k3s1, Ubuntu 24.04.4 LTS, kernel 6.8.0-124-generic (as of 2026-06-07)
 
 ## Validation Commands
 
@@ -72,7 +73,7 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 ## Key Conventions
 
 - **Pod security**: Non-privileged workloads use `runAsNonRoot: true`, drop `ALL` capabilities, `RuntimeDefault` seccomp. The monitoring namespace uses `privileged` enforce (required for node-exporter DaemonSet); all others use `baseline` enforce with `restricted` warn/audit.
-- **Storage**: All PVCs use `local-path` storage class (k3s default).
+- **Storage**: All PVCs use `local-path` storage class (k3s default). PVs have node affinity — pods using local-path PVCs can only schedule on the node where the PV was created. If a node is down, pods with PVCs on that node will stay Pending.
 - **TLS chain**: cert-manager creates a self-signed CA (`selfsigned` ClusterIssuer → `homelab-ca` Certificate → `homelab-ca` ClusterIssuer) that issues a wildcard cert for `*.homelab.bertbullough.com`. The cert lives in the `traefik` namespace and is set as the default TLS cert via a TLSStore. Any IngressRoute with `tls: {}` gets it automatically.
 - **Ingress**: All services route through Traefik (192.168.1.202) with hostname-based routing. A global `security-headers` middleware (HSTS, frame-deny, XSS protection) in the traefik namespace is referenced cross-namespace by IngressRoutes.
 - **DNS**: Pi-hole (192.168.1.200) resolves `*.homelab.bertbullough.com` via dnsmasq records in `k8s/pihole/custom-dns.yaml`.
@@ -86,6 +87,7 @@ These secrets are not in Git and must be created manually on the cluster before 
 - `pihole-secret` (namespace: `pihole`, key: `webpassword`)
 - `tailscale-auth` (namespace: `tailscale`, key: `TS_AUTHKEY`)
 - `grafana-admin-secret` (namespace: `monitoring`, keys: `admin-user`, `admin-password`)
+- `traefik-dashboard-auth` (namespace: `traefik`)
 
 ## CI/CD
 
@@ -119,11 +121,45 @@ IP: 192.168.1.10, SSH access: `ssh nas` (key-only, passwordless sudo via `/etc/s
 
 **Remaining services:** Plex, Synology Drive (port 6690), Synology Photos, FileStation, SynoFinder, DhcpServer, ActiveInsight, QuickConnect
 
+## TP-Link T1600G-28TS V3 Switch
+
+IP: 192.168.1.2, management via HTTPS web UI or telnet only.
+
+**SSH is permanently broken** — the switch only offers `diffie-hellman-group1-sha1` (KEX) and `ssh-dss` (host key), both removed from OpenSSH 10.2. Firmware 3.0.6 Build 20200805 is the final release; the product is EOL. No alternative firmware exists (OpenWrt doesn't support the chipset).
+
+**Telnet access** (port 23): Login with user `admin`, password in 1Password. Send `enable` after login to enter privileged mode. macOS has no telnet binary; use a Python raw socket client with IAC negotiation handling (Python 3.13 removed `telnetlib`).
+
+**Hardening applied (2026-06-06):** SSH disabled, SNMP disabled, HTTP disabled (HTTPS only). Hostname and location set. Config saved to startup-config.
+
+**Remaining web UI tasks:** Remove weak HTTPS ciphers (RC4, DES), configure NTP, enable flash logging. CLI syntax for these features is unsupported on this firmware version.
+
+## Operational Notes
+
+**Rolling node reboots:** Drain → reboot → uncordon one node at a time. Longhorn instance-manager PDBs may block drains — force-delete the pod if needed. After rebooting the control plane (nuc1), cert-manager-cainjector and kube-state-metrics may CrashLoop briefly until the API server is fully ready; they self-resolve.
+
+**Tailscale pod conflicts:** Tailscale uses `hostNetwork: true` and claims a host-level TUN device (`tailscale0`). If a rolling update gets stuck (old RS holds TUN, new RS can't claim it), scale old ReplicaSets to 0, then delete the stale pod. If the TUN device is still held by a zombie process, the pod must be deleted and rescheduled.
+
+**PV node affinity map (as of 2026-06-07):**
+
+| PVC | Namespace | Node |
+|-----|-----------|------|
+| pihole-config | pihole | nuc3 |
+| pihole-dnsmasq | pihole | nuc3 |
+| homeassistant-config | homeassistant | nuc3 |
+| ollama | ollama | nuc2 |
+| prometheus-db | monitoring | nuc1 |
+
+**NUC reconnect plan:** See `docs/nuc-reconnect-plan.md` for the full checklist when bringing nodes back online after downtime.
+
 ## Key IPs
 
 | IP | Service |
 |---|---|
+| 192.168.1.2 | TP-Link T1600G-28TS switch |
 | 192.168.1.10 | Synology NAS (DSM) |
+| 192.168.1.20 | nuc1 (k3s server) |
+| 192.168.1.21 | nuc2 (k3s agent) |
+| 192.168.1.22 | nuc3 (k3s agent) |
 | 192.168.1.200 | Pi-hole DNS (LoadBalancer) |
 | 192.168.1.202 | Traefik ingress (LoadBalancer) |
 | 192.168.1.200–250 | MetalLB L2 pool |
