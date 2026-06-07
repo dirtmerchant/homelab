@@ -96,9 +96,11 @@ The ArgoCD repo secret (`homelab-repo` in `argocd` namespace) must also be creat
 | `tailscale-auth` | tailscale | `tailscale` | `TS_AUTHKEY` |
 | `grafana-admin-secret` | monitoring | `grafana` | `admin-user`, `admin-password` |
 | `traefik-dashboard-auth` | traefik | `traefik` | `users` (htpasswd format) |
-| `homelab-repo` | argocd | `argocd-repo` | `type`, `url`, `username`, `password` |
+| `homelab-repo` | argocd | `argocd-repo` | `type`, `repo-url`, `username`, `password` |
 
-**1Password item setup:** Each item must exist in the "Homelab" vault with the exact title and field names listed above. ESO uses the SDK provider's `item/field` path syntax (e.g., `pihole/webpassword`).
+**1Password item setup:** Each item must exist in the "Homelab" vault with the exact title and field names listed above. ESO uses the SDK provider's `item/field` path syntax (e.g., `pihole/webpassword`). Note: the ArgoCD repo URL is stored as `repo-url` (not `url`) because 1Password treats fields named `url` as URL objects rather than text fields.
+
+**Rotating the GitHub PAT:** Update the `password` field in the `argocd-repo` 1Password item, then restart the ESO controller to clear the SDK cache: `kubectl rollout restart deployment/external-secrets -n external-secrets`. ESO will sync the new PAT to the cluster within ~30s of the restart. Revoke the old PAT in GitHub after confirming ArgoCD still syncs.
 
 **Architecture:** ClusterSecretStore `onepassword` connects to 1Password API via service account token. ExternalSecrets for pihole and tailscale live alongside their services; grafana, traefik, and argocd-repo ExternalSecrets live in `k8s/external-secrets/resources/` (they target namespaces different from the deploying app).
 
