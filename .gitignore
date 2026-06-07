@@ -21,6 +21,9 @@ Thumbs.db
 # Claude Code local settings (may contain session tokens)
 .claude/settings.local.json
 
+# Sensitive network/device details (IPs, MACs, security configs)
+CLAUDE.local.md
+
 # Terraform
 .terraform/
 *.tfstate

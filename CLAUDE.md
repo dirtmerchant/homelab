@@ -8,13 +8,7 @@ Homelab infrastructure repository for a 3-node k3s Kubernetes cluster running on
 
 ## Cluster Nodes
 
-- nuc1: 192.168.1.20 (k3s server — control-plane + etcd)
-- nuc2: 192.168.1.21 (k3s agent — worker)
-- nuc3: 192.168.1.22 (k3s agent — worker)
-
-SSH access: `ssh nuc1`, `ssh nuc2`, `ssh nuc3` (aliases in `~/.ssh/config`, key-only, passwordless sudo)
-Kubeconfig: `~/.kube/config` (local Mac)
-Versions: k3s v1.34.3+k3s1, Ubuntu 24.04.4 LTS, kernel 6.8.0-124-generic (as of 2026-06-07)
+3-node k3s cluster on Intel NUC7i7BNH machines: one server (control-plane + etcd), two agents. SSH aliases configured in `~/.ssh/config` (key-only, passwordless sudo). See `CLAUDE.local.md` for IPs, MACs, and access details.
 
 ## Validation Commands
 
@@ -116,67 +110,11 @@ The ArgoCD repo secret (`homelab-repo` in `argocd` namespace) must also be creat
 
 ## Synology NAS (DS218+)
 
-IP: 192.168.1.10, SSH access: `ssh nas` (key-only, passwordless sudo via `/etc/sudoers.d/bert`)
-
-**Security hardening applied (2026-06-06):**
-
-- SMB guest access disabled on all shares (`guest ok=no` in `/usr/syno/etc/share_right.map` and `/etc/samba/smb.share.conf`)
-- Home directory permissions fixed (`/var/services/homes` 755, each user dir 700)
-- Default `admin` account disabled (DSM UI)
-- SSH hardened: `PermitRootLogin no`, `PasswordAuthentication no`, removed `Match User root/admin` blocks (backup at `/etc/ssh/sshd_config.bak`)
-- EOL packages removed: Python2, PHP7.4 (also removed Hyper Backup and Glacier Backup as PHP7.4 dependencies)
-- Unused packages removed: GlacierBackup, HybridShare, ScsiTarget
-- SMB minimum protocol raised from NT1 (SMBv1) to SMB2 in `/etc/samba/smb.conf` (backup at `smb.conf.bak`)
-- AIConsole stopped (Postgres, Redis, deidd services no longer running)
-- Stale core dumps cleaned from `/volume1/`
-- ContainerManager stopped (kept installed for future use)
-- DSM firewall enabled with allow-list: SSH/DSM/SMB from 192.168.1.0/24, Plex (32400) from any, deny all. DROP rule added via `iptables -A INPUT_FIREWALL -j DROP` (DSM UI doesn't generate this)
-
-**DSM caveats:**
-
-- DSM updates may reset `/etc/sudoers.d/bert` and `/etc/ssh/sshd_config` — re-apply after major DSM updates
-- SMB config: DSM generates `/etc/samba/smb.share.conf` from `/usr/syno/etc/share_right.map` — edit `share_right.map` for persistent changes, then also edit `smb.share.conf` and restart `pkg-synosamba-smbd.service`. DSM may also reset `min protocol` in `smb.conf` if SMB settings are changed in the UI
-- Firewall: DSM's "Deny all" rule doesn't generate an iptables DROP — must add manually via `sudo iptables -A INPUT_FIREWALL -j DROP` after any DSM firewall changes. Don't re-apply firewall from DSM UI while DROP rule is active (it will detect a block and roll back)
-
-**Remaining services:** Plex, Synology Drive (port 6690), Synology Photos, FileStation, SynoFinder, DhcpServer, ActiveInsight, QuickConnect
+SSH access via `ssh nas`. Security-hardened (2026-06-06): SSH key-only, SMBv1 disabled, admin account disabled, DSM firewall enabled. See `CLAUDE.local.md` for full hardening details, DSM caveats, and IP/access info.
 
 ## TP-Link T1600G-28TS V3 Switch
 
-IP: 192.168.1.2, management via HTTPS web UI or telnet only.
-
-**SSH is permanently broken** — the switch only offers `diffie-hellman-group1-sha1` (KEX) and `ssh-dss` (host key), both removed from OpenSSH 10.2. Firmware 3.0.6 Build 20200805 is the final release; the product is EOL. No alternative firmware exists (OpenWrt doesn't support the chipset).
-
-**Telnet access** (port 23): Login with user `admin`, password in 1Password. Send `enable` after login to enter privileged mode. macOS has no telnet binary; use a Python raw socket client with IAC negotiation handling (Python 3.13 removed `telnetlib`).
-
-**Hardening applied (2026-06-06):** SSH disabled, SNMP disabled, HTTP disabled (HTTPS only). Hostname and location set. Config saved to startup-config.
-
-**CLI caveats:** Port descriptions are limited to 16 characters and must not contain spaces or quotes (both are silently ignored). Use hyphens instead.
-
-**Port map (as of 2026-06-07):**
-
-| Port | Status | Description | Device / Notes |
-|------|--------|-------------|---------------|
-| Gi1/0/1 | Down | | |
-| Gi1/0/2 | Up | TP-Link-AP-B650 | TP-Link WiFi AP (OUI 70:58:a4, hostname GE6E220C-B650, 192.168.1.176). WiFi clients behind it include iPads, iPhones, Chamberlain MyQ (64:52:99), Bosch fridge (68:a4:0e), Amazon device (3c:e4:41), Apple "Living-Room-4" (b0:67:b5) |
-| Gi1/0/3 | Down | | |
-| Gi1/0/4 | Down | | |
-| Gi1/0/5 | Up | MasterbE7345CD2 | Apple device (OUI dc:56:e7), single MAC, router DNS hostname MasterbE7345CD2 |
-| Gi1/0/6 | Down | | |
-| Gi1/0/7 | Up | Living-Room-3 | Apple device (OUI c0:95:6d, 192.168.1.140), router DNS hostname Living-Room-3. One companion locally-administered MAC (b2:67:b5) also present |
-| Gi1/0/8–10 | Down | | |
-| Gi1/0/11 | Up | nuc1-k3s-server | Intel NUC7i7BNH, MAC 1c:69:7a:0d:e3:bc, 192.168.1.20 |
-| Gi1/0/12 | Down | | |
-| Gi1/0/13 | Up | nuc2-k3s-worker | Intel NUC7i7BNH, MAC 1c:69:7a:0d:3f:5c, 192.168.1.21 |
-| Gi1/0/14 | Up | nuc3-k3s-worker | Intel NUC7i7BNH, MAC 1c:69:7a:0d:e3:b4, 192.168.1.22 |
-| Gi1/0/15–18 | Down | | |
-| Gi1/0/19 | Up | TP-Link-AP-B6B0 | TP-Link WiFi AP (OUI 70:58:a4, hostname GE6E220C-B6B0, 192.168.1.182). WiFi clients include: Mac "BMO" (68:5e:dd, .100), ecobee "Main-Floor" (44:61:32), Brother printer (60:6d:c7), Intel PC "elipooter" (60:dd:8e), Apple "Kitchen" (c0:95:6d), iPhones, Apple Watches |
-| Gi1/0/20–21 | Down | | |
-| Gi1/0/22 | Up | Apple-Basement-6 | Apple device (OUI c0:95:6d, 192.168.1.152), router DNS hostname Basement-6. Two companion locally-administered MACs (b2:67:b5) also present |
-| Gi1/0/23 | Up | Synology-NAS | Synology DS218+ (OUI 00:11:32, MAC 00:11:32:aa:e9:2b, 192.168.1.10) |
-| Gi1/0/24 | Up | Router-Gateway | TP-Link router (OUI 70:58:a4, MAC 70:58:a4:7a:6f:b0, 192.168.1.1). Devices behind it: Sonos (80:4a:f2), Xbox (e4:2a:ac), Orbit irrigation (44:67:55), Apple TV "Elis-Teevee" (28:ff:3c), TP-Link Deco units (3c:52:a1, 40:ae:30), iPhones |
-| Gi1/0/25–28 | Down | | SFP fiber ports |
-
-**Remaining web UI tasks:** Remove weak HTTPS ciphers (RC4, DES), configure NTP, enable flash logging. CLI syntax for these features is unsupported on this firmware version.
+28-port managed switch (EOL, firmware 3.0.6). SSH is permanently broken (removed ciphers); management via HTTPS web UI or telnet only (Python raw socket client required — macOS has no telnet, Python 3.13 removed `telnetlib`). Hardened (2026-06-06): SSH/SNMP/HTTP disabled. See `CLAUDE.local.md` for IP, telnet access, CLI caveats, and full port map with device inventory.
 
 ## Operational Notes
 
@@ -184,27 +122,8 @@ IP: 192.168.1.2, management via HTTPS web UI or telnet only.
 
 **Tailscale pod conflicts:** Tailscale uses `hostNetwork: true` and claims a host-level TUN device (`tailscale0`). If a rolling update gets stuck (old RS holds TUN, new RS can't claim it), scale old ReplicaSets to 0, then delete the stale pod. If the TUN device is still held by a zombie process, the pod must be deleted and rescheduled.
 
-**PV node affinity map (as of 2026-06-07):**
-
-| PVC | Namespace | Node |
-|-----|-----------|------|
-| pihole-config | pihole | nuc3 |
-| pihole-dnsmasq | pihole | nuc3 |
-| homeassistant-config | homeassistant | nuc3 |
-| ollama | ollama | nuc2 |
-| prometheus-db | monitoring | nuc1 |
+**PV node affinity:** PVCs are pinned to specific nodes via local-path. See `CLAUDE.local.md` for the current PV-to-node map.
 
 **NUC reconnect plan:** See `docs/nuc-reconnect-plan.md` for the full checklist when bringing nodes back online after downtime.
 
-## Key IPs
-
-| IP | Service |
-|---|---|
-| 192.168.1.2 | TP-Link T1600G-28TS switch |
-| 192.168.1.10 | Synology NAS (DSM) |
-| 192.168.1.20 | nuc1 (k3s server) |
-| 192.168.1.21 | nuc2 (k3s agent) |
-| 192.168.1.22 | nuc3 (k3s agent) |
-| 192.168.1.200 | Pi-hole DNS (LoadBalancer) |
-| 192.168.1.202 | Traefik ingress (LoadBalancer) |
-| 192.168.1.200–250 | MetalLB L2 pool |
+**Key IPs and network topology:** See `CLAUDE.local.md`.
