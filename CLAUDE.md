@@ -29,7 +29,7 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
   | xargs kubeconform -strict -kubernetes-version 1.34.0 \
     -schema-location default \
     -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceVersion}}.json' \
-    -skip ArgoCD,Application -summary
+    -skip ArgoCD,Application,ExternalSecret,ClusterSecretStore -summary
 ```
 
 ## Deployment Workflow
@@ -46,17 +46,17 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 |------|-------------|
 | -3 | namespaces |
 | -2 | metallb |
-| -1 | traefik |
-| 0 | cert-manager, monitoring, pihole, homeassistant, ollama, longhorn, tailscale |
+| -1 | traefik, external-secrets |
+| 0 | cert-manager, monitoring, pihole, homeassistant, ollama, longhorn, tailscale, external-secrets-resources |
 | 1 | cert-manager-resources (depends on cert-manager CRDs existing) |
 | 2 | argocd-resources, monitoring-ingress |
 
 **Two app patterns exist in `k8s/argocd/apps/`:**
 
 1. **Plain manifests** (pihole, homeassistant, traefik, metallb, tailscale): `source.path` points to a `k8s/<name>/` directory containing raw YAML.
-2. **Multi-source Helm** (cert-manager, monitoring, ollama, argocd): Uses `sources[]` with a git `ref: values` source and a Helm chart source that references `$values/k8s/<name>/values.yaml`. Only the `values.yaml` file lives in this repo; the chart comes from an upstream Helm repo.
+2. **Multi-source Helm** (cert-manager, monitoring, ollama, argocd, external-secrets): Uses `sources[]` with a git `ref: values` source and a Helm chart source that references `$values/k8s/<name>/values.yaml`. Only the `values.yaml` file lives in this repo; the chart comes from an upstream Helm repo.
 
-**Sync policy exceptions:** The namespaces app uses `prune: false`. Helm-based apps (monitoring, cert-manager, ollama, longhorn) use `ServerSideApply`. Some wave-2 apps use `directory.include` to limit which files are synced.
+**Sync policy exceptions:** The namespaces app uses `prune: false`. Helm-based apps (monitoring, cert-manager, ollama, longhorn, external-secrets) use `ServerSideApply`. Some wave-2 apps use `directory.include` to limit which files are synced.
 
 ## Adding a New Service
 
@@ -80,14 +80,33 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 - **Monitoring labels**: ServiceMonitors require `release: monitoring` label to be picked up by Prometheus.
 - **Network policies**: Most services have a `networkpolicy.yaml` restricting ingress to Traefik and monitoring namespaces.
 
-## Manual Secrets
+## Secrets Management (External Secrets Operator + 1Password)
 
-These secrets are not in Git and must be created manually on the cluster before the respective services will work:
+Secrets are managed by the External Secrets Operator (ESO) using the 1Password SDK provider. ESO syncs secrets from the "Homelab" vault in 1Password to Kubernetes automatically. Only one bootstrap secret is manual.
 
-- `pihole-secret` (namespace: `pihole`, key: `webpassword`)
-- `tailscale-auth` (namespace: `tailscale`, key: `TS_AUTHKEY`)
-- `grafana-admin-secret` (namespace: `monitoring`, keys: `admin-user`, `admin-password`)
-- `traefik-dashboard-auth` (namespace: `traefik`)
+**Bootstrap secret** (only manual secret — create before first ArgoCD sync):
+
+```bash
+kubectl create namespace external-secrets
+kubectl create secret generic onepassword-service-account \
+  -n external-secrets --from-literal=token='<1password-service-account-token>'
+```
+
+The ArgoCD repo secret (`homelab-repo` in `argocd` namespace) must also be created manually for the initial bootstrap, but ESO takes over its management once running.
+
+**ESO-managed secrets:**
+
+| Secret | Namespace | 1Password Item | Fields |
+|--------|-----------|----------------|--------|
+| `pihole-secret` | pihole | `pihole` | `webpassword` |
+| `tailscale-auth` | tailscale | `tailscale` | `TS_AUTHKEY` |
+| `grafana-admin-secret` | monitoring | `grafana` | `admin-user`, `admin-password` |
+| `traefik-dashboard-auth` | traefik | `traefik` | `users` (htpasswd format) |
+| `homelab-repo` | argocd | `argocd-repo` | `type`, `url`, `username`, `password` |
+
+**1Password item setup:** Each item must exist in the "Homelab" vault with the exact title and field names listed above. ESO uses the SDK provider's `item/field` path syntax (e.g., `pihole/webpassword`).
+
+**Architecture:** ClusterSecretStore `onepassword` connects to 1Password API via service account token. ExternalSecrets for pihole and tailscale live alongside their services; grafana, traefik, and argocd-repo ExternalSecrets live in `k8s/external-secrets/resources/` (they target namespaces different from the deploying app).
 
 ## CI/CD
 
@@ -130,6 +149,32 @@ IP: 192.168.1.2, management via HTTPS web UI or telnet only.
 **Telnet access** (port 23): Login with user `admin`, password in 1Password. Send `enable` after login to enter privileged mode. macOS has no telnet binary; use a Python raw socket client with IAC negotiation handling (Python 3.13 removed `telnetlib`).
 
 **Hardening applied (2026-06-06):** SSH disabled, SNMP disabled, HTTP disabled (HTTPS only). Hostname and location set. Config saved to startup-config.
+
+**CLI caveats:** Port descriptions are limited to 16 characters and must not contain spaces or quotes (both are silently ignored). Use hyphens instead.
+
+**Port map (as of 2026-06-07):**
+
+| Port | Status | Description | Device / Notes |
+|------|--------|-------------|---------------|
+| Gi1/0/1 | Down | | |
+| Gi1/0/2 | Up | TP-Link-AP-B650 | TP-Link WiFi AP (OUI 70:58:a4, hostname GE6E220C-B650, 192.168.1.176). WiFi clients behind it include iPads, iPhones, Chamberlain MyQ (64:52:99), Bosch fridge (68:a4:0e), Amazon device (3c:e4:41), Apple "Living-Room-4" (b0:67:b5) |
+| Gi1/0/3 | Down | | |
+| Gi1/0/4 | Down | | |
+| Gi1/0/5 | Up | MasterbE7345CD2 | Apple device (OUI dc:56:e7), single MAC, router DNS hostname MasterbE7345CD2 |
+| Gi1/0/6 | Down | | |
+| Gi1/0/7 | Up | Living-Room-3 | Apple device (OUI c0:95:6d, 192.168.1.140), router DNS hostname Living-Room-3. One companion locally-administered MAC (b2:67:b5) also present |
+| Gi1/0/8–10 | Down | | |
+| Gi1/0/11 | Up | nuc1-k3s-server | Intel NUC7i7BNH, MAC 1c:69:7a:0d:e3:bc, 192.168.1.20 |
+| Gi1/0/12 | Down | | |
+| Gi1/0/13 | Up | nuc2-k3s-worker | Intel NUC7i7BNH, MAC 1c:69:7a:0d:3f:5c, 192.168.1.21 |
+| Gi1/0/14 | Up | nuc3-k3s-worker | Intel NUC7i7BNH, MAC 1c:69:7a:0d:e3:b4, 192.168.1.22 |
+| Gi1/0/15–18 | Down | | |
+| Gi1/0/19 | Up | TP-Link-AP-B6B0 | TP-Link WiFi AP (OUI 70:58:a4, hostname GE6E220C-B6B0, 192.168.1.182). WiFi clients include: Mac "BMO" (68:5e:dd, .100), ecobee "Main-Floor" (44:61:32), Brother printer (60:6d:c7), Intel PC "elipooter" (60:dd:8e), Apple "Kitchen" (c0:95:6d), iPhones, Apple Watches |
+| Gi1/0/20–21 | Down | | |
+| Gi1/0/22 | Up | Apple-Basement-6 | Apple device (OUI c0:95:6d, 192.168.1.152), router DNS hostname Basement-6. Two companion locally-administered MACs (b2:67:b5) also present |
+| Gi1/0/23 | Up | Synology-NAS | Synology DS218+ (OUI 00:11:32, MAC 00:11:32:aa:e9:2b, 192.168.1.10) |
+| Gi1/0/24 | Up | Router-Gateway | TP-Link router (OUI 70:58:a4, MAC 70:58:a4:7a:6f:b0, 192.168.1.1). Devices behind it: Sonos (80:4a:f2), Xbox (e4:2a:ac), Orbit irrigation (44:67:55), Apple TV "Elis-Teevee" (28:ff:3c), TP-Link Deco units (3c:52:a1, 40:ae:30), iPhones |
+| Gi1/0/25–28 | Down | | SFP fiber ports |
 
 **Remaining web UI tasks:** Remove weak HTTPS ciphers (RC4, DES), configure NTP, enable flash logging. CLI syntax for these features is unsupported on this firmware version.
 
