@@ -1,0 +1,48 @@
+---
+services:
+  pihole:
+    image: pihole/pihole:2026.05.0
+    container_name: pihole
+    hostname: pihole-nas
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8080:80/tcp"
+    environment:
+      TZ: America/New_York
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD}
+      FTLCONF_dns_listeningMode: all
+      FTLCONF_misc_etc_dnsmasq_d: "true"
+      # Allow Nebula Sync to use the Teleporter API
+      FTLCONF_webserver_api_app_sudo: "true"
+    volumes:
+      - /volume1/docker/pihole/etc-pihole:/etc/pihole
+      - /volume1/docker/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+      - ./custom-dns/02-custom-dns.conf:/etc/dnsmasq.d/02-custom-dns.conf:ro
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    healthcheck:
+      test: ["CMD", "dig", "+norecurse", "+retry=0", "@127.0.0.1", "google.com"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  nebula-sync:
+    image: ghcr.io/lovelaze/nebula-sync:latest
+    container_name: nebula-sync
+    restart: unless-stopped
+    dns:
+      - 192.168.1.200
+      - 8.8.8.8
+    environment:
+      PRIMARY: https://pihole.homelab.bertbullough.com|${PIHOLE_PASSWORD}
+      REPLICAS: http://pihole:80|${PIHOLE_PASSWORD}
+      CRON: "*/30 * * * *"
+      FULL_SYNC: "true"
+      CLIENT_SKIP_TLS_VERIFICATION: "true"
+    depends_on:
+      pihole:
+        condition: service_healthy

@@ -8,6 +8,11 @@
       "/k8s/.+\\.yaml$/"
     ]
   },
+  "docker-compose": {
+    "managerFilePatterns": [
+      "/nas/.+\\.ya?ml$/"
+    ]
+  },
   "packageRules": [
     {
       "description": "Pin digests for all Docker images",

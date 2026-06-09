@@ -61,7 +61,7 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 5. If the service needs an ingress hostname:
    - Add a Traefik IngressRoute with `tls: {}` (wildcard cert auto-applies)
    - Reference the `security-headers@kubernetescrd` middleware from the traefik namespace
-   - Add a DNS entry in `k8s/pihole/custom-dns.yaml` pointing the hostname to 192.168.1.202
+   - Add a DNS entry in both `k8s/pihole/custom-dns.yaml` and `nas/pihole/custom-dns/02-custom-dns.conf` pointing the hostname to 192.168.1.202 (see `docs/pihole-ha.md`)
 6. If the service needs a NetworkPolicy, add one in `k8s/<name>/networkpolicy.yaml`
 
 ## Key Conventions
@@ -70,7 +70,7 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 - **Storage**: All PVCs use `local-path` storage class (k3s default). PVs have node affinity — pods using local-path PVCs can only schedule on the node where the PV was created. If a node is down, pods with PVCs on that node will stay Pending.
 - **TLS chain**: cert-manager creates a self-signed CA (`selfsigned` ClusterIssuer → `homelab-ca` Certificate → `homelab-ca` ClusterIssuer) that issues a wildcard cert for `*.homelab.bertbullough.com`. The cert lives in the `traefik` namespace and is set as the default TLS cert via a TLSStore. Any IngressRoute with `tls: {}` gets it automatically.
 - **Ingress**: All services route through Traefik (192.168.1.202) with hostname-based routing. A global `security-headers` middleware (HSTS, frame-deny, XSS protection) in the traefik namespace is referenced cross-namespace by IngressRoutes.
-- **DNS**: Pi-hole (192.168.1.200) resolves `*.homelab.bertbullough.com` via dnsmasq records in `k8s/pihole/custom-dns.yaml`.
+- **DNS**: Dual Pi-hole setup for HA. Primary (192.168.1.200, k3s cluster) and secondary (192.168.1.10, Synology NAS Docker) both resolve `*.homelab.bertbullough.com` via dnsmasq records. Custom DNS records must be updated in both `k8s/pihole/custom-dns.yaml` and `nas/pihole/custom-dns/02-custom-dns.conf`. Nebula Sync pulls blocklists/settings from primary to secondary every 30 min. See `docs/pihole-ha.md`.
 - **Monitoring labels**: ServiceMonitors require `release: monitoring` label to be picked up by Prometheus.
 - **Network policies**: Most services have a `networkpolicy.yaml` restricting ingress to Traefik and monitoring namespaces.
 
@@ -110,11 +110,11 @@ The ArgoCD repo secret (`homelab-repo` in `argocd` namespace) must also be creat
 
 - **GitHub Actions** (`.github/workflows/validate.yaml`): Runs yamllint + kubeconform on PRs touching `k8s/`
 - **ArgoCD**: Auto-syncs from `main` with `prune: true` and `selfHeal: true` on all Applications
-- **Renovate**: Pins Docker image digests, automerges patch updates, pins Traefik to v2.11.x (`renovate.json`)
+- **Renovate**: Pins Docker image digests, automerges patch updates, pins Traefik to v2.11.x, tracks NAS docker-compose images (`renovate.json`)
 
 ## Synology NAS (DS218+)
 
-SSH access via `ssh nas`. Security-hardened (2026-06-06): SSH key-only, SMBv1 disabled, admin account disabled, DSM firewall enabled. See `CLAUDE.local.md` for full hardening details, DSM caveats, and IP/access info.
+SSH access via `ssh nas` (port 2222). Security-hardened (2026-06-06): SSH key-only, non-standard port, SMBv1 disabled, admin account disabled, DSM firewall enabled. See `CLAUDE.local.md` for full hardening details, DSM caveats, and IP/access info.
 
 ## TP-Link T1600G-28TS V3 Switch
 
@@ -129,5 +129,7 @@ SSH access via `ssh nas`. Security-hardened (2026-06-06): SSH key-only, SMBv1 di
 **PV node affinity:** PVCs are pinned to specific nodes via local-path. See `CLAUDE.local.md` for the current PV-to-node map.
 
 **NUC reconnect plan:** See `docs/nuc-reconnect-plan.md` for the full checklist when bringing nodes back online after downtime.
+
+**Pi-hole HA:** Primary Pi-hole runs in the k3s cluster (192.168.1.200); secondary runs on the Synology NAS via Docker (192.168.1.10:53, web UI on port 8080). Nebula Sync on the NAS pulls config from the primary every 30 min. Custom DNS records are not synced automatically — update both `k8s/pihole/custom-dns.yaml` and `nas/pihole/custom-dns/02-custom-dns.conf` when adding services. NAS Pi-hole compose files live in `nas/pihole/`. See `docs/pihole-ha.md` for full setup/maintenance docs.
 
 **Key IPs and network topology:** See `CLAUDE.local.md`.

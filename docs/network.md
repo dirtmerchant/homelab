@@ -2,13 +2,13 @@
 
 ## Network Overview
 
-Single flat LAN on 192.168.1.0/24. Router at 192.168.1.1 provides NAT and DHCP. No VLANs currently configured. Pi-hole (192.168.1.200) serves as the primary DNS resolver for the network, with upstream forwarding.
+Single flat LAN on 192.168.1.0/24. Router at 192.168.1.1 provides NAT and DHCP. No VLANs currently configured. Dual Pi-hole instances provide DNS redundancy: primary at 192.168.1.200 (k3s cluster) and secondary at 192.168.1.10 (Synology NAS). Router DHCP hands out both as DNS servers.
 
 ## Devices
 
 ### Router/Gateway — 192.168.1.1
 
-Default gateway and DHCP server. DNS forwarded to Pi-hole. No ports forwarded to internal devices (NAS, cluster, etc. are LAN-only).
+Default gateway and DHCP server. DHCP hands out primary DNS 192.168.1.200 and secondary DNS 192.168.1.10. No ports forwarded to internal devices (NAS, cluster, etc. are LAN-only).
 
 ### Managed Switch — 192.168.1.2
 
@@ -32,7 +32,7 @@ SSH access: key-only, passwordless sudo. Kubeconfig at `~/.kube/config` on local
 |---------|--------|-------|
 | ArgoCD | argocd.homelab.bertbullough.com | GitOps controller, app-of-apps pattern |
 | Traefik | 192.168.1.202 (LoadBalancer) | Ingress controller, wildcard TLS via cert-manager |
-| Pi-hole | 192.168.1.200 (LoadBalancer) + pihole.homelab.bertbullough.com | DNS server for the network |
+| Pi-hole | 192.168.1.200 (LoadBalancer) + pihole.homelab.bertbullough.com | Primary DNS server (HA pair with NAS replica) |
 | Grafana | grafana.homelab.bertbullough.com | Monitoring dashboards (Prometheus + Alertmanager backend) |
 | Home Assistant | hass.homelab.bertbullough.com | Home automation |
 | Ollama | — | LLM inference |
@@ -49,13 +49,24 @@ SSH access: `ssh nas` (key-only, passwordless sudo). DSM web UI at `https://192.
 
 **External storage:** 15T USB drive (backup destination).
 
-**Key services:** Plex, Synology Drive, Synology Photos, FileStation, ContainerManager (stopped).
+**Key services:** Plex, Synology Drive, Synology Photos, FileStation, ContainerManager (running), Pi-hole secondary (Docker, DNS on port 53, web UI on port 8080).
 
 **Backups:** Nightly rsync mirror to external USB drive. Backs up video, homes, and Plex config.
 
 ## DNS
 
-Pi-hole runs in the k3s cluster at 192.168.1.200. Internal hostnames resolve via dnsmasq custom records in `k8s/pihole/custom-dns.yaml`. All hostnames route through Traefik (192.168.1.202) which handles TLS termination with a wildcard cert (self-signed CA via cert-manager).
+Dual Pi-hole setup for high availability:
+
+| Instance | IP | Location | Web UI |
+|----------|-----|----------|--------|
+| Primary | 192.168.1.200 | k3s cluster (MetalLB) | pihole.homelab.bertbullough.com |
+| Secondary | 192.168.1.10 | Synology NAS (Docker) | 192.168.1.10:8080 |
+
+Router DHCP hands out both DNS servers. The primary is the source of truth for configuration. Nebula Sync runs on the NAS and pulls blocklists/settings from the primary every 30 minutes. Custom DNS records are maintained separately in both instances (not synced by Nebula Sync).
+
+Internal hostnames resolve via dnsmasq custom records in `k8s/pihole/custom-dns.yaml` (cluster) and `nas/pihole/custom-dns/02-custom-dns.conf` (NAS). All hostnames route through Traefik (192.168.1.202) which handles TLS termination with a wildcard cert (self-signed CA via cert-manager).
+
+See `docs/pihole-ha.md` for setup, maintenance, and troubleshooting.
 
 ## IP Address Map
 
