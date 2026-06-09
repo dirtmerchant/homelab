@@ -2,13 +2,13 @@
 
 ## Network Overview
 
-Single flat LAN on 192.168.1.0/24. Router at 192.168.1.1 provides NAT and DHCP. No VLANs currently configured. Dual Pi-hole instances provide DNS redundancy: NAS (192.168.1.10) as DNS 1, cluster (192.168.1.200) as DNS 2. Router DHCP hands out both.
+Single flat LAN on 192.168.1.0/24 (IPv4) and 2605:a601:8007:e800::/64 (IPv6 GUA). Router at 192.168.1.1 provides NAT, DHCPv4, and IPv6 Router Advertisements. No VLANs currently configured. Dual Pi-hole instances provide DNS redundancy: NAS (192.168.1.10 / 2605:a601:8007:e800::2) as DNS 1, cluster (192.168.1.200) as DNS 2. Router DHCPv4 hands out both Pi-hole addresses; see IPv6 section below for IPv6 DNS caveats.
 
 ## Devices
 
 ### Router/Gateway — 192.168.1.1
 
-Default gateway and DHCP server. DHCP hands out DNS 1: 192.168.1.10 (NAS Pi-hole) and DNS 2: 192.168.1.200 (cluster Pi-hole). No ports forwarded to internal devices (NAS, cluster, etc. are LAN-only).
+Default gateway and DHCP server. DHCPv4 hands out DNS 1: 192.168.1.10 (NAS Pi-hole) and DNS 2: 192.168.1.200 (cluster Pi-hole). Also sends Router Advertisements with RDNSS pointing to Google's IPv6 DNS (2001:4860:4860::8888, 2001:4860:4860::8844) — this is hardcoded by Google Fiber and cannot be changed. No ports forwarded to internal devices (NAS, cluster, etc. are LAN-only).
 
 ### Managed Switch — 192.168.1.2
 
@@ -68,6 +68,22 @@ Internal hostnames resolve via dnsmasq custom records in `k8s/pihole/custom-dns.
 
 See `docs/pihole-ha.md` for setup, maintenance, and troubleshooting.
 
+## IPv6
+
+**Prefix:** `2605:a601:8007:e800::/64` (GUA assigned by Google Fiber via DHCPv6-PD). All devices on the LAN get globally-routable IPv6 addresses via DHCPv6 and/or SLAAC.
+
+**DNS limitation:** The Google Fiber router hardcodes Google's public IPv6 DNS servers (`2001:4860:4860::8888` and `2001:4860:4860::8844`) in the RDNSS option of Router Advertisements. There is no setting to change this. macOS and other clients that prefer IPv6 DNS will query Google directly, bypassing Pi-hole entirely.
+
+**Workaround (Mac only):** Manual DNS is set on the Mac to override RDNSS:
+```bash
+networksetup -setdnsservers Wi-Fi 2605:a601:8007:e800::2 192.168.1.10 192.168.1.200
+```
+This gives the Mac: NAS Pi-hole over IPv6 (preferred), NAS Pi-hole over IPv4 (fallback), cluster Pi-hole over IPv4 (fallback). To revert to DHCP-provided DNS: `networksetup -setdnsservers Wi-Fi empty`.
+
+**Other devices:** iPhones, iPads, and IoT devices using DHCP will still receive Google's IPv6 DNS from RDNSS. Their DHCPv4-provided Pi-hole addresses still work, so Pi-hole handles most queries — but clients that prefer IPv6 DNS will bypass Pi-hole for some lookups. This is a Google Fiber platform limitation; the only fix would be replacing the router.
+
+**Cluster:** k3s is not configured for dual-stack. MetalLB, pod CIDRs, and service CIDRs are IPv4-only. The NAS Pi-hole handles IPv6 DNS for the network. Converting the cluster to dual-stack would require restarting k3s with new `--cluster-cidr` and `--service-cidr` flags, reconfiguring flannel, and adding IPv6 to MetalLB — not worth the risk given the NAS already covers IPv6 DNS.
+
 ## IP Address Map
 
 | IP | Device/Service |
@@ -86,10 +102,11 @@ See `docs/pihole-ha.md` for setup, maintenance, and troubleshooting.
 
 **Network perimeter:** Router NAT, no port forwarding to internal devices. All services are LAN-only except Plex (port 32400 allowed from any in NAS firewall for Plex remote access).
 
-**NAS (hardened 2026-06-06):**
+**NAS (hardened 2026-06-06, IPv6 firewall 2026-06-09):**
 - SSH: key-only, no root login, no password auth
 - SMB: no guest access, minimum protocol SMB2
-- Firewall: iptables allow-list (SSH/DSM/SMB from LAN, Plex from any, deny all)
+- IPv4 firewall: iptables allow-list (SSH/DSM/SMB/DNS/Pi-hole web from LAN, Plex from any, deny all)
+- IPv6 firewall: ip6tables allow-list matching IPv4 posture (SSH/DSM/SMB/DNS/Pi-hole web from `2605:a601:8007:e800::/64`, Plex from any, deny all). NAS has a globally-routable IPv6 GUA, making this critical.
 - Default admin account disabled
 - EOL software removed
 

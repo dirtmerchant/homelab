@@ -9,7 +9,7 @@ Two Pi-hole instances provide DNS redundancy:
 | NAS | Synology NAS (Docker) | 192.168.1.10 | 192.168.1.10:8080 | DNS server 1 (preferred by clients) |
 | Cluster | k3s cluster (MetalLB) | 192.168.1.200 | pihole.homelab.bertbullough.com | DNS server 2 (fallback), config primary |
 
-Router DHCP hands out NAS (192.168.1.10) as DNS server 1 and cluster (192.168.1.200) as DNS server 2. The NAS is preferred by clients because it has fewer failure modes (no k8s/MetalLB/PVC dependency). The cluster Pi-hole remains the Nebula Sync config primary — configuration changes are made there (GitOps via ArgoCD) and synced to the NAS every 30 minutes.
+Router DHCPv4 hands out NAS (192.168.1.10) as DNS server 1 and cluster (192.168.1.200) as DNS server 2. The NAS also serves DNS over IPv6 at `2605:a601:8007:e800::2`. The NAS is preferred by clients because it has fewer failure modes (no k8s/MetalLB/PVC dependency). The cluster Pi-hole remains the Nebula Sync config primary — configuration changes are made there (GitOps via ArgoCD) and synced to the NAS every 30 minutes.
 
 Nebula Sync runs as a sidecar container on the NAS and pulls configuration from the cluster Pi-hole via Pi-hole v6's Teleporter API. Custom DNS records are mounted read-only and maintained manually in both locations.
 
@@ -24,6 +24,31 @@ Nebula Sync runs as a sidecar container on the NAS and pulls configuration from 
 - Custom DNS: `nas/pihole/custom-dns/02-custom-dns.conf` (repo) -> `/volume1/docker/pihole/custom-dns/02-custom-dns.conf` (NAS)
 - Secrets: `/volume1/docker/pihole/.env` (NAS only, gitignored)
 - Pi-hole data: `/volume1/docker/pihole/etc-pihole/`, `/volume1/docker/pihole/etc-dnsmasq.d/`
+
+## IPv6 DNS
+
+The NAS Pi-hole serves DNS over both IPv4 and IPv6. Docker binds to `0.0.0.0:53` and `:::53` by default, so no port binding changes are needed.
+
+**Google Fiber RDNSS limitation:** The Google Fiber router hardcodes Google's IPv6 DNS (`2001:4860:4860::8888`, `2001:4860:4860::8844`) in Router Advertisement RDNSS options. This setting cannot be changed. Devices using DHCP/RA will receive Google's IPv6 DNS servers, which take priority over the DHCPv4-provided Pi-hole addresses on clients that prefer IPv6.
+
+**Mac workaround:** Manual DNS is configured on the Mac to override RDNSS:
+```bash
+# Set Pi-hole as DNS (IPv6 first, IPv4 fallback)
+networksetup -setdnsservers Wi-Fi 2605:a601:8007:e800::2 192.168.1.10 192.168.1.200
+
+# Revert to DHCP-provided DNS
+networksetup -setdnsservers Wi-Fi empty
+```
+
+**Other devices:** iPhones, iPads, and IoT devices on DHCP will still get Google's IPv6 DNS from RDNSS. Their DHCPv4-provided Pi-hole addresses (192.168.1.10, 192.168.1.200) still work for IPv4 DNS queries, but IPv6-preferring clients will bypass Pi-hole for some lookups. This is a Google Fiber limitation — the only fix would be replacing the router or running a custom RA daemon (not recommended, as it would conflict with the router's RAs).
+
+**Cluster Pi-hole:** The cluster is IPv4-only (k3s is not configured for dual-stack). The NAS handles all IPv6 DNS. This is intentional — converting k3s to dual-stack is high-risk and unnecessary since the NAS already covers IPv6 DNS.
+
+**Testing IPv6 DNS:**
+```bash
+dig -6 @2605:a601:8007:e800::2 google.com           # External resolution
+dig -6 @2605:a601:8007:e800::2 grafana.homelab.bertbullough.com  # Custom DNS
+```
 
 ## Common Operations
 
@@ -111,10 +136,13 @@ ssh nas "sudo /usr/syno/bin/synopkg stop DhcpServer"
 
 ### DSM firewall blocking DNS
 
-The NAS firewall must allow port 53 (TCP+UDP) and port 8080 (TCP) from 192.168.1.0/24. After any DSM firewall changes, re-add the iptables DROP rule:
+The NAS firewall must allow port 53 (TCP+UDP) and port 8080 (TCP) from the LAN. After any DSM firewall changes, re-add the DROP rules for both IPv4 and IPv6:
 ```bash
 ssh nas "sudo iptables -A INPUT_FIREWALL -j DROP"
+ssh nas "sudo ip6tables -A INPUT_FIREWALL -j DROP"
 ```
+
+The IPv6 firewall also needs specific RETURN rules for LAN services from `2605:a601:8007:e800::/64`. If DSM resets the ip6tables rules, re-apply them (see `docs/network.md` IPv6 section or `CLAUDE.local.md` NAS hardening notes).
 
 ## Initial Setup
 
