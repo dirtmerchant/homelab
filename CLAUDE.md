@@ -70,7 +70,7 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 - **Storage**: All PVCs use `local-path` storage class (k3s default). PVs have node affinity — pods using local-path PVCs can only schedule on the node where the PV was created. If a node is down, pods with PVCs on that node will stay Pending.
 - **TLS chain**: cert-manager creates a self-signed CA (`selfsigned` ClusterIssuer → `homelab-ca` Certificate → `homelab-ca` ClusterIssuer) that issues a wildcard cert for `*.homelab.bertbullough.com`. The cert lives in the `traefik` namespace and is set as the default TLS cert via a TLSStore. Any IngressRoute with `tls: {}` gets it automatically.
 - **Ingress**: All services route through Traefik (192.168.1.202) with hostname-based routing. A global `security-headers` middleware (HSTS, frame-deny, XSS protection) in the traefik namespace is referenced cross-namespace by IngressRoutes.
-- **DNS**: Dual Pi-hole setup for HA. Primary (192.168.1.200, k3s cluster) and secondary (192.168.1.10, Synology NAS Docker) both resolve `*.homelab.bertbullough.com` via dnsmasq records. Custom DNS records must be updated in both `k8s/pihole/custom-dns.yaml` and `nas/pihole/custom-dns/02-custom-dns.conf`. Nebula Sync pulls blocklists/settings from primary to secondary every 30 min. See `docs/pihole-ha.md`.
+- **DNS**: Dual Pi-hole for HA. Router DHCP hands out NAS Pi-hole (192.168.1.10) as DNS 1 and cluster Pi-hole (192.168.1.200) as DNS 2. Config changes are made on the cluster (GitOps) and synced to the NAS via Nebula Sync every 30 min. Custom DNS records must be updated in both `k8s/pihole/custom-dns.yaml` and `nas/pihole/custom-dns/02-custom-dns.conf`. See `docs/pihole-ha.md`.
 - **Monitoring labels**: ServiceMonitors require `release: monitoring` label to be picked up by Prometheus.
 - **Network policies**: Most services have a `networkpolicy.yaml` restricting ingress to Traefik and monitoring namespaces.
 
@@ -130,6 +130,6 @@ SSH access via `ssh nas` (port 2222). Security-hardened (2026-06-06): SSH key-on
 
 **NUC reconnect plan:** See `docs/nuc-reconnect-plan.md` for the full checklist when bringing nodes back online after downtime.
 
-**Pi-hole HA:** Primary Pi-hole runs in the k3s cluster (192.168.1.200); secondary runs on the Synology NAS via Docker (192.168.1.10:53, web UI on port 8080). Nebula Sync on the NAS pulls config from the primary every 30 min. Custom DNS records are not synced automatically — update both `k8s/pihole/custom-dns.yaml` and `nas/pihole/custom-dns/02-custom-dns.conf` when adding services. NAS Pi-hole compose files live in `nas/pihole/`. See `docs/pihole-ha.md` for full setup/maintenance docs.
+**Pi-hole HA:** Two Pi-hole instances for DNS redundancy. Router DHCP hands out NAS (192.168.1.10) as DNS 1 and cluster (192.168.1.200) as DNS 2. The NAS is preferred by clients (fewer failure modes); the cluster remains the config primary (GitOps-managed, Nebula Sync pushes to NAS every 30 min). Custom DNS records are not synced automatically — update both `k8s/pihole/custom-dns.yaml` and `nas/pihole/custom-dns/02-custom-dns.conf` when adding services. NAS compose files live in `nas/pihole/`. See `docs/pihole-ha.md`.
 
 **Key IPs and network topology:** See `CLAUDE.local.md`.

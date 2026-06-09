@@ -6,12 +6,12 @@ Two Pi-hole instances provide DNS redundancy:
 
 | Instance | Location | IP | Web UI | Role |
 |----------|----------|-----|--------|------|
-| Primary | k3s cluster (MetalLB) | 192.168.1.200 | pihole.homelab.bertbullough.com | Source of truth for config |
-| Secondary | Synology NAS (Docker) | 192.168.1.10 | 192.168.1.10:8080 | Replica, synced from primary |
+| NAS | Synology NAS (Docker) | 192.168.1.10 | 192.168.1.10:8080 | DNS server 1 (preferred by clients) |
+| Cluster | k3s cluster (MetalLB) | 192.168.1.200 | pihole.homelab.bertbullough.com | DNS server 2 (fallback), config primary |
 
-Router DHCP hands out both DNS servers. Clients use the primary by default and fall back to the secondary if the primary is unreachable.
+Router DHCP hands out NAS (192.168.1.10) as DNS server 1 and cluster (192.168.1.200) as DNS server 2. The NAS is preferred by clients because it has fewer failure modes (no k8s/MetalLB/PVC dependency). The cluster Pi-hole remains the Nebula Sync config primary — configuration changes are made there (GitOps via ArgoCD) and synced to the NAS every 30 minutes.
 
-Nebula Sync runs as a sidecar container on the NAS and pulls configuration from the primary Pi-hole every 30 minutes via Pi-hole v6's Teleporter API. Custom DNS records are mounted read-only and maintained manually in both locations.
+Nebula Sync runs as a sidecar container on the NAS and pulls configuration from the cluster Pi-hole via Pi-hole v6's Teleporter API. Custom DNS records are mounted read-only and maintained manually in both locations.
 
 ## File Locations
 
@@ -142,4 +142,4 @@ For reference, here are the steps used for the initial deployment:
    ```
 6. Add DSM firewall rules for ports 53 (TCP+UDP) and 8080 (TCP) from 192.168.1.0/24
 7. Re-add iptables DROP: `ssh nas "sudo iptables -A INPUT_FIREWALL -j DROP"`
-8. Set router DHCP secondary DNS to 192.168.1.10
+8. Set router DHCP DNS server 1 to 192.168.1.10 (NAS), DNS server 2 to 192.168.1.200 (cluster)
