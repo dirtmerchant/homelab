@@ -24,6 +24,12 @@ Thumbs.db
 # Sensitive network/device details (IPs, MACs, security configs)
 CLAUDE.local.md
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+uv.lock
+
 # Terraform
 .terraform/
 *.tfstate
