@@ -10,8 +10,22 @@ NAS="bert@192.168.1.10"
 NAS_BASE="/volume1/NetBackup/k3s"
 RSYNC_OPTS=(-a --delete --rsync-path=/usr/bin/rsync)
 STORAGE="/var/lib/rancher/k3s/storage"
+METRICS_DIR="/var/lib/node-exporter/textfile_collector"
+METRICS_FILE="$METRICS_DIR/nuc_backup.prom"
+NODE="nuc1"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG"; }
+
+write_failure_metrics() {
+    cat > "$METRICS_DIR/nuc_backup.$$.prom" <<PROM
+# HELP nuc_backup_success Whether the last backup succeeded (1=success, 0=failure).
+# TYPE nuc_backup_success gauge
+nuc_backup_success{node="$NODE"} 0
+PROM
+    mv "$METRICS_DIR/nuc_backup.$$.prom" "$METRICS_FILE"
+}
+
+trap write_failure_metrics ERR
 
 log "=== nuc1 backup started ==="
 
@@ -36,3 +50,14 @@ else
 fi
 
 log "=== nuc1 backup finished ==="
+
+# Write success metrics
+cat > "$METRICS_DIR/nuc_backup.$$.prom" <<PROM
+# HELP nuc_backup_success Whether the last backup succeeded (1=success, 0=failure).
+# TYPE nuc_backup_success gauge
+nuc_backup_success{node="$NODE"} 1
+# HELP nuc_backup_last_success_timestamp_seconds Unix timestamp of last successful backup.
+# TYPE nuc_backup_last_success_timestamp_seconds gauge
+nuc_backup_last_success_timestamp_seconds{node="$NODE"} $(date +%s)
+PROM
+mv "$METRICS_DIR/nuc_backup.$$.prom" "$METRICS_FILE"

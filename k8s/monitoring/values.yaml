@@ -38,3 +38,45 @@ prometheus:
           resources:
             requests:
               storage: 20Gi
+prometheus-node-exporter:
+  extraArgs:
+    - --collector.textfile.directory=/var/lib/node-exporter/textfile_collector
+  extraHostPathMounts:
+    - name: textfile-collector
+      mountPath: /var/lib/node-exporter/textfile_collector
+      hostPath: /var/lib/node-exporter/textfile_collector
+      readOnly: true
+additionalPrometheusRulesMap:
+  backup-health:
+    groups:
+      - name: backup-health
+        rules:
+          - alert: BackupStale
+            expr: time() - nuc_backup_last_success_timestamp_seconds > 93600
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Backup stale on {{ $labels.node }}"
+              description: >-
+                No successful backup on {{ $labels.node }} for over 26 hours.
+                Last success was {{ $value | humanizeDuration }} ago.
+          - alert: BackupFailed
+            expr: nuc_backup_success == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Backup failed on {{ $labels.node }}"
+              description: >-
+                The last backup run on {{ $labels.node }} exited with an error.
+          - alert: BackupMetricMissing
+            expr: absent(nuc_backup_success{node="nuc1"}) or absent(nuc_backup_success{node="nuc3"})
+            for: 30m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Backup metrics missing"
+              description: >-
+                Backup metrics are not being reported for one or more nodes.
+                Check that backup scripts are running and textfile collector is working.
