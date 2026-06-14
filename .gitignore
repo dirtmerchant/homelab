@@ -20,6 +20,7 @@ Thumbs.db
 
 # Claude Code local settings (may contain session tokens)
 .claude/settings.local.json
+.claude/memory.md
 
 # Sensitive network/device details (IPs, MACs, security configs)
 CLAUDE.local.md
