@@ -11,6 +11,23 @@ A fully declarative, GitOps-managed Kubernetes homelab running on bare-metal Int
 - 3-tier automated backup pipeline (cluster → NAS → cloud)
 - Internal CA with automatic wildcard TLS
 
+## Contents
+
+- [Network Topology](#network-topology)
+- [Hardware](#hardware)
+- [GitOps: ArgoCD App-of-Apps](#gitops-argocd-app-of-apps)
+- [TLS Certificate Chain](#tls-certificate-chain)
+- [Secrets Management](#secrets-management)
+- [DNS: Dual Pi-hole HA](#dns-dual-pi-hole-ha)
+- [Security](#security)
+- [Observability](#observability)
+- [Backup Strategy](#backup-strategy)
+- [CI/CD](#cicd)
+- [Repository Structure](#repository-structure)
+- [Services](#services)
+- [Lessons Learned](#lessons-learned)
+- [Known Gaps & Roadmap](#known-gaps--roadmap)
+
 ---
 
 ## Network Topology
@@ -497,3 +514,38 @@ A few real-world tradeoffs worth documenting:
 - **Helm + GitOps needs multi-source.** ArgoCD's multi-source feature lets you keep only `values.yaml` in your repo while pulling charts from upstream. This keeps the repo clean but adds complexity to Application manifests.
 - **Dual Pi-hole is worth the effort.** DNS is the one service where downtime is immediately and painfully visible to every user on the network. Two instances with sync is cheap insurance.
 - **Backup monitoring matters more than backups.** A backup that silently fails for weeks is worse than no backup. Prometheus alerts on stale/failed backups close the loop.
+
+---
+
+## Known Gaps & Roadmap
+
+Infrastructure is never finished. These are the gaps I'm aware of and plan to address:
+
+### Control Plane HA
+
+The cluster runs a single control plane node. If `nuc1` goes down, the API server is unavailable and no new scheduling happens (existing workloads on `nuc2`/`nuc3` continue running). A proper HA setup would use 3 server nodes with embedded etcd consensus across all three. The tradeoff today: dedicating two worker nodes to also run control plane components reduces available capacity on a small cluster. Worth revisiting if a fourth node is added.
+
+### Restore Drills
+
+The 3-tier backup pipeline is monitored and automated, but restores haven't been validated end-to-end in a documented drill. The plan:
+
+- [ ] Restore etcd snapshot to a throwaway k3s instance and verify cluster state
+- [ ] Restore Home Assistant and Pi-hole configs from NAS backup to fresh PVCs
+- [ ] Restore from Backblaze B2 (restic) to verify encryption keys and repo integrity
+- [ ] Document results and make it a quarterly exercise
+
+### Policy Enforcement
+
+Pod Security Standards are enforced at the namespace level, but there's no admission policy engine (OPA/Gatekeeper or Kyverno) for fine-grained rules like requiring resource limits, blocking `latest` tags, or enforcing label conventions. Adding Kyverno with a baseline policy set would catch misconfigurations before they reach the cluster.
+
+### CD Testing Beyond Lint
+
+CI validates YAML syntax (yamllint) and schema correctness (kubeconform), but there's no dry-run or diff preview. Planned improvements:
+
+- [ ] ArgoCD diff comments on PRs (show what would change before merge)
+- [ ] `kubeval`/`kubeconform` with full CRD schemas (currently skips ArgoCD, ESO CRDs)
+- [ ] Conftest or Kyverno CLI for policy-as-code checks in CI
+
+### Structured Alerting
+
+Prometheus alerts exist for backup health, but there's no alert routing, escalation, or on-call structure. Alertmanager routes everything to a single receiver. A more complete setup would add severity-based routing, PagerDuty/Slack integration, and silencing rules for planned maintenance windows.
