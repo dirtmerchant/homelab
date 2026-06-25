@@ -23,6 +23,7 @@ A fully declarative, GitOps-managed Kubernetes homelab running on bare-metal Int
 - [Observability](#observability)
 - [Backup Strategy](#backup-strategy)
 - [CI/CD](#cicd)
+- [Operational Tooling](#operational-tooling)
 - [Repository Structure](#repository-structure)
 - [Services](#services)
 - [Lessons Learned](#lessons-learned)
@@ -373,6 +374,8 @@ All nodes use key-only authentication managed by a password manager SSH agent. N
 
 The monitoring stack is built on **kube-prometheus-stack** (Prometheus, Grafana, Alertmanager, node-exporter) deployed via Helm.
 
+**What's monitored:** Node health (CPU, memory, disk via node-exporter), Kubernetes state (pod status, deployment health via kube-state-metrics), application metrics (cert-manager certificate expiry, Longhorn volume health), and backup health (custom textfile collector metrics from each node).
+
 **Custom alerts** beyond the kube-prometheus defaults:
 
 | Alert | Condition | Severity |
@@ -381,7 +384,11 @@ The monitoring stack is built on **kube-prometheus-stack** (Prometheus, Grafana,
 | `BackupFailed` | Last backup exited with error | critical |
 | `BackupMetricMissing` | Metrics not reported for 30+ min | warning |
 
-**Textfile collector pattern:** Backup scripts on each node write Prometheus metrics to a well-known path using an atomic write pattern (write to temp file, `mv` into place). node-exporter scrapes the file, making backup health visible in Prometheus and Grafana without any custom exporters.
+**SLO-like indicators:** There's no formal SLO framework, but a few signals are treated as implicit reliability targets. DNS resolution availability is covered by the dual Pi-hole setup -- if one instance goes down, clients fail over to the other. Backup freshness is monitored with a 26-hour staleness threshold, which effectively enforces a 1-day RPO target. Certificate validity is handled by cert-manager's auto-renewal 30 days before expiry; if renewal fails, kube-prometheus-stack's built-in cert-manager alerts fire. These aren't SLOs with error budgets -- they're "things that page me if they break."
+
+**Grafana dashboards:** Custom ConfigMap-based dashboards exist for [cert-manager](../k8s/cert-manager/resources/grafana-dashboard.yaml) (certificate expiry, renewal success rates) and [Home Assistant](../k8s/homeassistant/grafana-dashboard.yaml) (entity counts, automation triggers). These supplement the kube-prometheus-stack defaults (node overview, pod resources, API server health) and are deployed via ArgoCD like everything else.
+
+**Metrics pipeline -- textfile collector:** Backup scripts on each node write Prometheus metrics to a well-known path using an atomic write pattern (write to temp file, `mv` into place). node-exporter scrapes the `.prom` files, Prometheus evaluates alerting rules against them. This avoids the need for custom exporters or a Pushgateway -- the backup cron job just writes a file, and the existing scrape pipeline handles the rest.
 
 ---
 
@@ -432,6 +439,18 @@ graph TB
 
 **Monitoring:** Prometheus alerts fire if backups are stale, failed, or not reporting metrics.
 
+### Restore Runbook
+
+A documented restore runbook (`docs/restore-runbook.md`) covers recovery procedures for each failure tier:
+
+- **Single PVC restore** from Longhorn snapshots, NAS rsync backups, or B2 offsite (three options depending on what survived)
+- **Single node rebuild** -- OS install, k3s join, PVC data restore, backup script redeployment (separate procedures for control-plane vs. worker nodes)
+- **ArgoCD re-bootstrap** -- ESO bootstrap secret, repo secret, Helm install, `root.yaml` apply; all other secrets auto-sync from the password manager once ESO is running
+- **Full cluster restore** -- ordered rebuild of all three nodes, ArgoCD bootstrap, PVC restore, and a verification checklist covering nodes, workloads, DNS, TLS, monitoring, and Longhorn health
+- **Offsite restore from B2** -- retrieving encrypted restic snapshots when both NAS and USB backups are unavailable
+
+The runbook documents step-by-step procedures, but end-to-end restore drills have not been run yet. This is acknowledged as a planned improvement in the [Known Gaps](#known-gaps--roadmap) section.
+
 ---
 
 ## CI/CD
@@ -444,6 +463,23 @@ graph TB
 | Dependency updates | Renovate | Pins Docker image digests, automerges patch updates, enforces version constraints |
 
 The CI pipeline runs on PRs touching `k8s/`. ArgoCD syncs on merge to `main`. No manual deployment steps exist.
+
+---
+
+## Operational Tooling
+
+**Backup scripts** (`scripts/backup/`) -- Each NUC runs a node-specific backup script daily at 04:00 that rsyncs local PVC data to the NAS. `nuc1-backup.sh` handles etcd snapshots and Prometheus data; `nuc3-backup.sh` handles Home Assistant and Pi-hole configs. The NAS then runs `restic-b2-backup.sh` at 05:00 to encrypt and push everything offsite to Backblaze B2, applying a retention policy (7 daily / 4 weekly / 6 monthly) and running a weekly integrity check on Sundays. The cascade schedule (NAS-to-USB at 03:00, NUCs-to-NAS at 04:00, NAS-to-B2 at 05:00) ensures each tier completes before the next begins. A few engineering patterns are worth highlighting: PVC paths are matched with shell globs (e.g., `"$STORAGE"/*_monitoring_prometheus-*`) rather than hardcoded, so backups survive PVC recreation where the random prefix changes. Prometheus metrics are written atomically -- each script writes to a PID-suffixed temp file and `mv`s it into the node-exporter textfile collector directory, preventing partial reads. An `ERR` trap ensures a failure metric (`nuc_backup_success{node="..."} 0`) is emitted even on unexpected errors, closing the loop with Prometheus alerts.
+
+```bash
+# Atomic metric write pattern used by all backup scripts
+cat > "$METRICS_DIR/nuc_backup.$$.prom" <<PROM
+nuc_backup_success{node="$NODE"} 1
+nuc_backup_last_success_timestamp_seconds{node="$NODE"} $(date +%s)
+PROM
+mv "$METRICS_DIR/nuc_backup.$$.prom" "$METRICS_FILE"
+```
+
+**Home Assistant discovery MCP server** (`tools/ha-discovery/`) -- A custom [Model Context Protocol](https://modelcontextprotocol.io/) server written in Python that lets an AI assistant discover and configure new devices on a Home Assistant instance. The server wraps the HA REST and WebSocket APIs using an async `aiohttp` client, exposing six tools via [FastMCP](https://github.com/jlowin/fastmcp): `list_discovered_devices`, `list_configured_integrations`, `start_config_flow`, `get_flow_step`, `advance_flow`, `abort_flow`, and `ignore_discovery`. Authentication tokens are resolved at runtime from an environment variable or a password manager CLI call, with a single-call cache to avoid repeated lookups. Zero-config devices (those with an empty form schema) can be auto-accepted by submitting `{}`; devices requiring credentials prompt the user through the assistant. This turns device onboarding from a manual web UI workflow into a conversational one.
 
 ---
 
