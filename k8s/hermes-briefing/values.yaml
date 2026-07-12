@@ -1,0 +1,114 @@
+image:
+  tag: "v2026.7.7.2"
+
+persistence:
+  storageClass: local-path
+  size: 5Gi
+
+env:
+  GATEWAY_ALLOW_ALL_USERS: "false"
+  TELEGRAM_ALLOWED_USERS: "8365815206"
+  HERMES_UID: "1000"
+  HERMES_GID: "1000"
+
+# The Hermes image uses s6-overlay which must start as root and internally
+# drop to HERMES_UID/HERMES_GID. Override the chart's non-root defaults.
+podSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  runAsNonRoot: false
+  seccompProfile:
+    type: RuntimeDefault
+
+# s6-overlay init needs CHOWN, DAC_OVERRIDE, FOWNER for volume setup
+# and SETUID/SETGID to drop to the hermes user. All allowed by baseline PSA.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+  seccompProfile:
+    type: RuntimeDefault
+
+config:
+  values:
+    model:
+      default: anthropic/claude-opus-4.6
+      provider: auto
+      base_url: https://openrouter.ai/api/v1
+    agent:
+      max_turns: 90
+      gateway_timeout: 1800
+      restart_drain_timeout: 60
+      tool_use_enforcement: auto
+    terminal:
+      backend: local
+      cwd: .
+      timeout: 180
+    display:
+      tool_progress: all
+      interim_assistant_messages: true
+    browser:
+      inactivity_timeout: 120
+      command_timeout: 30
+      allow_private_urls: false
+    compression:
+      enabled: true
+      threshold: 0.5
+      target_ratio: 0.2
+      protect_last_n: 20
+    security:
+      redact_secrets: true
+      tirith_enabled: true
+      tirith_fail_open: true
+
+externalSecret:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: onepassword
+  data:
+    - secretKey: OPENROUTER_API_KEY
+      remoteRef:
+        key: hermes-briefing/credential
+    - secretKey: TELEGRAM_BOT_TOKEN
+      remoteRef:
+        key: telegram dirtmerchant_bot/credential
+
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Egress
+  ingress: []
+  egress:
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 2Gi

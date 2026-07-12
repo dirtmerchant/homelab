@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hermes-briefing
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/dirtmerchant/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/dirtmerchant/homelab.git
+      targetRevision: main
+      path: k8s/hermes-briefing/chart
+      helm:
+        valueFiles:
+          - $values/k8s/hermes-briefing/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hermes-briefing
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
