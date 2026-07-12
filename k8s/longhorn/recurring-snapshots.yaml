@@ -4,6 +4,7 @@ metadata:
   name: snapshot-12h
   namespace: longhorn-system
 spec:
+  name: snapshot-12h
   cron: "0 */12 * * *"
   task: snapshot
   retain: 5
