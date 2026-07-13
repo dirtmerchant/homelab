@@ -33,10 +33,12 @@ data:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode())["data"]
             with metrics_lock:
-                metrics["openrouter_usage_credits_total"] = data.get("usage", 0)
-                metrics["openrouter_limit_credits_total"] = data.get("limit", 0)
-                remaining = data.get("limit", 0) - data.get("usage", 0)
-                metrics["openrouter_limit_remaining_credits"] = max(remaining, 0)
+                usage = data.get("usage") or 0
+                limit = data.get("limit")
+                metrics["openrouter_usage_credits_total"] = usage
+                if limit is not None:
+                    metrics["openrouter_limit_credits_total"] = limit
+                    metrics["openrouter_limit_remaining_credits"] = max(limit - usage, 0)
         except Exception as e:
             print(f"openrouter poll error: {e}", flush=True)
 
@@ -45,21 +47,21 @@ data:
         if not TAVILY_API_KEY:
             return
         req = urllib.request.Request(
-            "https://api.tavily.com/v1/usage",
+            "https://api.tavily.com/usage",
             headers={"Authorization": f"Bearer {TAVILY_API_KEY}"},
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode())
             with metrics_lock:
-                key = data.get("key_usage", {})
-                metrics["tavily_key_usage"] = key.get("total_usage", 0)
+                key = data.get("key", {})
+                metrics["tavily_key_usage"] = key.get("usage", 0)
                 metrics["tavily_key_limit"] = key.get("limit", 0)
                 metrics["tavily_key_search_usage"] = key.get("search_usage", 0)
                 metrics["tavily_key_extract_usage"] = key.get("extract_usage", 0)
-                account = data.get("account_plan_usage", {})
-                metrics["tavily_account_plan_usage"] = account.get("total_usage", 0)
-                metrics["tavily_account_plan_limit"] = account.get("limit", 0)
+                account = data.get("account", {})
+                metrics["tavily_account_plan_usage"] = account.get("plan_usage", 0)
+                metrics["tavily_account_plan_limit"] = account.get("plan_limit", 0)
         except Exception as e:
             print(f"tavily poll error: {e}", flush=True)
 
