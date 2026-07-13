@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cost-exporter
+  namespace: cost-exporter
+  labels:
+    app: cost-exporter
+    release: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: cost-exporter
+  ports:
+    - port: 9090
+      targetPort: metrics
+      protocol: TCP
+      name: metrics

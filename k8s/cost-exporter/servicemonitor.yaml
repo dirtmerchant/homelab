@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cost-exporter
+  namespace: cost-exporter
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: cost-exporter
+  endpoints:
+    - port: metrics
+      interval: 5m
