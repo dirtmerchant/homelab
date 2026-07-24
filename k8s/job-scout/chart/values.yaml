@@ -65,6 +65,11 @@ resources:
     cpu: "1"
     memory: 1Gi
 
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+
 nodeSelector: {}
 tolerations: []
 affinity: {}
