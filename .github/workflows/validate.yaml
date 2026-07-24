@@ -30,7 +30,7 @@ jobs:
             | tar xz -C /usr/local/bin
       - name: Validate manifests
         run: |
-          find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
+          find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' -not -path '*/chart/templates/*' \
             | xargs kubeconform \
               -strict \
               -kubernetes-version 1.34.0 \

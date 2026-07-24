@@ -1,0 +1,76 @@
+image:
+  tag: "latest"
+  pullPolicy: Always
+
+env:
+  SCOUT_MODEL: "ollama:qwen2.5:7b"
+  OLLAMA_HOST: "http://ollama.ollama.svc.cluster.local:11434"
+  OPIK_ENABLED: "false"
+
+ingressRoute:
+  enabled: true
+  host: job-scout.homelab.bertbullough.com
+
+networkPolicy:
+  enabled: true
+  ingress:
+    # Allow traffic from Traefik only
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - protocol: TCP
+          port: 7860
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Ollama
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ollama
+      ports:
+        - protocol: TCP
+          port: 11434
+    # HTTPS (external job APIs)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+
+externalSecret:
+  enabled: false
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: onepassword
+  data:
+    - secretKey: OPIK_API_KEY
+      remoteRef:
+        key: job-scout/opik
+    - secretKey: JSEARCH_API_KEY
+      remoteRef:
+        key: job-scout/jsearch
+    - secretKey: ADZUNA_APP_ID
+      remoteRef:
+        key: job-scout/adzuna-app-id
+    - secretKey: ADZUNA_APP_KEY
+      remoteRef:
+        key: job-scout/adzuna-app-key
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

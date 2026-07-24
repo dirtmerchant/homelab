@@ -4,6 +4,7 @@ ollama:
   models:
     pull:
       - qwen2.5-coder:3b
+      - qwen2.5:7b
 
 resources:
   requests:

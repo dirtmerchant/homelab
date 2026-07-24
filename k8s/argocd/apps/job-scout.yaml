@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: job-scout
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/dirtmerchant/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/dirtmerchant/homelab.git
+      targetRevision: main
+      path: k8s/job-scout/chart
+      helm:
+        valueFiles:
+          - $values/k8s/job-scout/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: job-scout
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

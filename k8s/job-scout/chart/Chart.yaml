@@ -1,0 +1,17 @@
+apiVersion: v2
+name: job-scout
+description: Helm chart for Job Scout — LangGraph job-matching agent with Gradio UI
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.25.0-0"
+keywords:
+  - job-scout
+  - ai
+  - agent
+  - langgraph
+  - gradio
+sources:
+  - https://github.com/dirtmerchant/observable-job-agent
+maintainers:
+  - name: dirtmerchant
