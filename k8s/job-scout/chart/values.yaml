@@ -70,6 +70,13 @@ persistence:
   size: 1Gi
   storageClass: ""
 
+metrics:
+  serviceMonitor:
+    enabled: true
+    interval: 60s
+  dashboard:
+    enabled: true
+
 nodeSelector: {}
 tolerations: []
 affinity: {}

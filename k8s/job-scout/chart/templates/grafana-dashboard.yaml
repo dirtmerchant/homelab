@@ -1,0 +1,273 @@
+{{- if .Values.metrics.dashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "job-scout.fullname" . }}-dashboard
+  namespace: monitoring
+  labels:
+    {{- include "job-scout.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  job-scout.json: |-
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 100,
+          "title": "Overview",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "steps": [{ "color": "green", "value": null }] }
+            }
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+          "id": 1,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Total Runs",
+          "targets": [
+            {
+              "expr": "sum(job_scout_runs_total)",
+              "legendFormat": "runs"
+            }
+          ],
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 0.9 },
+                  { "color": "green", "value": 0.95 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+          "id": 2,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Success Rate",
+          "targets": [
+            {
+              "expr": "sum(job_scout_runs_total{status=\"success\"}) / sum(job_scout_runs_total)",
+              "legendFormat": "success rate"
+            }
+          ],
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 30 },
+                  { "color": "red", "value": 60 }
+                ]
+              }
+            }
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+          "id": 3,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Avg Latency",
+          "targets": [
+            {
+              "expr": "sum(rate(job_scout_run_duration_seconds_sum[5m])) / sum(rate(job_scout_run_duration_seconds_count[5m]))",
+              "legendFormat": "avg"
+            }
+          ],
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "thresholds": { "steps": [{ "color": "green", "value": null }] }
+            }
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+          "id": 4,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Total Cost",
+          "targets": [
+            {
+              "expr": "sum(job_scout_run_cost_usd_sum)",
+              "legendFormat": "cost"
+            }
+          ],
+          "type": "stat"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 101,
+          "title": "Performance",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+          "id": 5,
+          "title": "Run Duration (p50 / p95)",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(job_scout_run_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(job_scout_run_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p95"
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "currencyUSD" } },
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+          "id": 6,
+          "title": "Cost per Run",
+          "targets": [
+            {
+              "expr": "sum(rate(job_scout_run_cost_usd_sum[5m])) / sum(rate(job_scout_run_cost_usd_count[5m]))",
+              "legendFormat": "avg cost"
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+          "id": 7,
+          "title": "Jobs Fetched vs Ranked",
+          "targets": [
+            {
+              "expr": "sum(rate(job_scout_jobs_fetched_sum[5m])) / sum(rate(job_scout_jobs_fetched_count[5m]))",
+              "legendFormat": "fetched (avg)"
+            },
+            {
+              "expr": "sum(rate(job_scout_jobs_ranked_sum[5m])) / sum(rate(job_scout_jobs_ranked_count[5m]))",
+              "legendFormat": "ranked (avg)"
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 102,
+          "title": "Quality & Sources",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+          "id": 8,
+          "title": "Top Fit Score Distribution",
+          "targets": [
+            {
+              "expr": "sum(rate(job_scout_top_fit_score_bucket[5m])) by (le)",
+              "legendFormat": "le={{ "{{" }}le{{ "}}" }}",
+              "format": "heatmap"
+            }
+          ],
+          "type": "heatmap"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+          "id": 9,
+          "title": "Job Source Breakdown",
+          "targets": [
+            {
+              "expr": "sum by (source) (rate(job_scout_job_source_fetches_total[5m]))",
+              "legendFormat": "{{ "{{" }}source{{ "}}" }}"
+            }
+          ],
+          "type": "piechart"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+          "id": 10,
+          "title": "Reformulation Rate",
+          "targets": [
+            {
+              "expr": "sum(rate(job_scout_reformulations_total[5m]))",
+              "legendFormat": "reformulations/s"
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+          "id": 103,
+          "title": "Errors",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "id": 11,
+          "title": "Profile Extraction Success / Error",
+          "targets": [
+            {
+              "expr": "sum by (status) (rate(job_scout_profile_extractions_total[5m]))",
+              "legendFormat": "{{ "{{" }}status{{ "}}" }}"
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "id": 12,
+          "title": "Failed Runs",
+          "targets": [
+            {
+              "expr": "sum(rate(job_scout_runs_total{status=\"error\"}[5m]))",
+              "legendFormat": "errors/s"
+            }
+          ],
+          "type": "timeseries"
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["job-scout"],
+      "templating": {
+        "list": [
+          {
+            "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+            "hide": 0,
+            "includeAll": false,
+            "name": "datasource",
+            "options": [],
+            "query": "prometheus",
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": { "from": "now-6h", "to": "now" },
+      "title": "Job Scout",
+      "uid": "job-scout"
+    }
+{{- end }}
