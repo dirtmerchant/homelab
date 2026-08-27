@@ -55,6 +55,15 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: hermes-carson
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: job-scout
   labels:
     pod-security.kubernetes.io/enforce: baseline
