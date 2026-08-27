@@ -92,15 +92,15 @@ soul:
     3. Synthesize findings into a single Telegram message with this format:
 
     ```
-    📰 Daily Briefing — {today's date}
+    Daily Briefing — {today's date}
 
-    ▸ {Section Name}
-    • {Finding 1 — 1-2 sentences with source link}
-    • {Finding 2}
+    > {Section Name}
+    - {Finding 1 — 1-2 sentences with source link}
+    - {Finding 2}
 
-    ▸ {Section Name}
-    • {Finding 1}
-    • {Finding 2}
+    > {Section Name}
+    - {Finding 1}
+    - {Finding 2}
 
     ---
     Sources searched: {count} | Topics: {count}
@@ -180,7 +180,7 @@ externalSecret:
         key: hermes-briefing/credential
     - secretKey: TELEGRAM_BOT_TOKEN
       remoteRef:
-        key: telegram dirtmerchant_bot/credential
+        key: telegram Darwin_briefing_bot/credential
     - secretKey: TAVILY_API_KEY
       remoteRef:
         key: tavily/credential
