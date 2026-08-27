@@ -42,9 +42,8 @@ securityContext:
 config:
   values:
     model:
-      default: anthropic/claude-opus-4.6
-      provider: auto
-      base_url: https://openrouter.ai/api/v1
+      default: claude-opus-4-6
+      provider: anthropic
     agent:
       max_turns: 90
       gateway_timeout: 1800
@@ -175,9 +174,9 @@ externalSecret:
     kind: ClusterSecretStore
     name: onepassword
   data:
-    - secretKey: OPENROUTER_API_KEY
+    - secretKey: ANTHROPIC_API_KEY
       remoteRef:
-        key: hermes-briefing/credential
+        key: Anthropic-API-Key/password
     - secretKey: TELEGRAM_BOT_TOKEN
       remoteRef:
         key: Darwin/password
