@@ -180,7 +180,7 @@ externalSecret:
         key: hermes-briefing/credential
     - secretKey: TELEGRAM_BOT_TOKEN
       remoteRef:
-        key: telegram Darwin_briefing_bot/credential
+        key: Darwin/password
     - secretKey: TAVILY_API_KEY
       remoteRef:
         key: tavily/credential
