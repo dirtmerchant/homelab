@@ -126,8 +126,12 @@ vault write auth/kubernetes/role/eso \
 | `grafana-admin-secret` | monitoring | `homelab/grafana` | `admin-user`, `admin-password` |
 | `traefik-dashboard-auth` | traefik | `homelab/traefik` | `users` (htpasswd format) |
 | `homelab-repo` | argocd | `homelab/argocd/homelab-repo` | `type`, `url`, `username`, `password` |
+| `garden-ai-repo` | argocd | `homelab/argocd/garden-ai-repo` | `type`, `url`, `username`, `password` |
 | `hermes-darwin-secret` | hermes-darwin | `homelab/hermes/darwin` | `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TAVILY_API_KEY` |
 | `hermes-carson-secret` | hermes-carson | `homelab/hermes/carson` | `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TAVILY_API_KEY`, `HA_TOKEN` |
+| `postgres-secret` | garden | `homelab/garden/postgres` | `postgres-password` |
+| `minio-secret` | garden | `homelab/garden/minio` | `root-user`, `root-password` |
+| `gcp-sa-secret` | garden | `homelab/garden/gcp-sa` | `sa-key` (JSON service account key) |
 
 **Writing secrets to Vault:** Use `vault kv put` with the `secret/homelab/` prefix:
 
