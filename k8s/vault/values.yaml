@@ -1,0 +1,48 @@
+server:
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      storage "file" {
+        path = "/vault/data"
+      }
+
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: longhorn
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  extraSecretEnvironmentVars:
+    - envName: VAULT_UNSEAL_KEY
+      secretName: vault-unseal-keys
+      secretKey: unseal-key
+
+  postStart:
+    - /bin/sh
+    - -c
+    - sleep 5 && vault operator unseal "$VAULT_UNSEAL_KEY" 2>/dev/null || true
+
+  readinessProbe:
+    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+
+ui:
+  enabled: true
+
+injector:
+  enabled: false
+
+csi:
+  enabled: false

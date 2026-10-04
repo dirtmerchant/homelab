@@ -172,17 +172,20 @@ externalSecret:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: onepassword
+    name: vault
   data:
     - secretKey: ANTHROPIC_API_KEY
       remoteRef:
-        key: Anthropic-API-Key/password
+        key: homelab/hermes/darwin
+        property: ANTHROPIC_API_KEY
     - secretKey: TELEGRAM_BOT_TOKEN
       remoteRef:
-        key: Darwin/password
+        key: homelab/hermes/darwin
+        property: TELEGRAM_BOT_TOKEN
     - secretKey: TAVILY_API_KEY
       remoteRef:
-        key: tavily/credential
+        key: homelab/hermes/darwin
+        property: TAVILY_API_KEY
 
 networkPolicy:
   enabled: true

@@ -135,20 +135,24 @@ externalSecret:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: onepassword
+    name: vault
   data:
     - secretKey: ANTHROPIC_API_KEY
       remoteRef:
-        key: Anthropic-API-Key/password
+        key: homelab/hermes/carson
+        property: ANTHROPIC_API_KEY
     - secretKey: TELEGRAM_BOT_TOKEN
       remoteRef:
-        key: Carson/password
+        key: homelab/hermes/carson
+        property: TELEGRAM_BOT_TOKEN
     - secretKey: TAVILY_API_KEY
       remoteRef:
-        key: tavily/credential
+        key: homelab/hermes/carson
+        property: TAVILY_API_KEY
     - secretKey: HA_TOKEN
       remoteRef:
-        key: ha_carson/password
+        key: homelab/hermes/carson
+        property: HA_TOKEN
 
 networkPolicy:
   enabled: true

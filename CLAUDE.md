@@ -40,8 +40,8 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 |------|-------------|
 | -3 | namespaces |
 | -2 | metallb |
-| -1 | traefik, external-secrets |
-| 0 | cert-manager, monitoring, pihole, homeassistant, ollama, longhorn, tailscale, external-secrets-resources |
+| -1 | traefik, external-secrets, vault |
+| 0 | cert-manager, monitoring, pihole, homeassistant, ollama, longhorn, tailscale, external-secrets-resources, vault-resources |
 | 1 | cert-manager-resources (depends on cert-manager CRDs existing) |
 | 2 | argocd-resources, monitoring-ingress |
 
@@ -50,6 +50,8 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 1. **Plain manifests** (pihole, homeassistant, traefik, metallb, tailscale): `source.path` points to a `k8s/<name>/` directory containing raw YAML.
 2. **Multi-source Helm** (cert-manager, monitoring, ollama, argocd, external-secrets): Uses `sources[]` with a git `ref: values` source and a Helm chart source that references `$values/k8s/<name>/values.yaml`. Only the `values.yaml` file lives in this repo; the chart comes from an upstream Helm repo.
 
+**Cascade-delete finalizer:** All Applications include `finalizers: [resources-finalizer.argocd.argoproj.io]`. This ensures that when an Application is removed from git and pruned by the root app, ArgoCD also deletes all resources the Application managed (preventing orphaned workloads). New Applications must include this finalizer.
+
 **Sync policy exceptions:** The namespaces app uses `prune: false`. Helm-based apps (monitoring, cert-manager, ollama, longhorn, external-secrets) use `ServerSideApply`. Some wave-2 apps use `directory.include` to limit which files are synced.
 
 ## Adding a New Service
@@ -57,7 +59,7 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 1. Create `k8s/<name>/` with deployment manifests (or just `values.yaml` for Helm apps)
 2. Add namespace: either add to `k8s/namespaces.yaml` or create `k8s/<name>/namespace.yaml` (both patterns exist — central file has traefik/monitoring/cert-manager/ollama; other services define their own)
 3. Include pod security labels on the namespace (`pod-security.kubernetes.io/{enforce,warn,audit}`)
-4. Create an ArgoCD Application in `k8s/argocd/apps/<name>.yaml` (sync wave 0 for most apps)
+4. Create an ArgoCD Application in `k8s/argocd/apps/<name>.yaml` (sync wave 0 for most apps, include `finalizers: [resources-finalizer.argocd.argoproj.io]`)
 5. If the service needs an ingress hostname:
    - Add a Traefik IngressRoute with `tls: {}` (wildcard cert auto-applies)
    - Reference the `security-headers@kubernetescrd` middleware from the traefik namespace
@@ -75,37 +77,70 @@ find k8s/ -name '*.yaml' -not -name 'values.yaml' -not -path 'k8s/longhorn/*' \
 - **Monitoring labels**: ServiceMonitors require `release: monitoring` label to be picked up by Prometheus.
 - **Network policies**: Most services have a `networkpolicy.yaml` restricting ingress to Traefik and monitoring namespaces.
 
-## Secrets Management (External Secrets Operator + 1Password)
+## Secrets Management (External Secrets Operator + HashiCorp Vault)
 
-Secrets are managed by the External Secrets Operator (ESO) using the 1Password SDK provider. ESO syncs secrets from the "Homelab" vault in 1Password to Kubernetes automatically. Only one bootstrap secret is manual.
+Secrets are managed by the External Secrets Operator (ESO) backed by a self-hosted HashiCorp Vault instance running in-cluster. Vault uses KV v2 at `secret/` with Kubernetes auth — ESO authenticates via its ServiceAccount, no static tokens. Vault runs standalone with Longhorn storage (3-way replicated data) and auto-unseals via a postStart hook.
 
-**Bootstrap secret** (only manual secret — create before first ArgoCD sync):
+**Bootstrap secrets** (manual, one-time — create before first ArgoCD sync):
 
 ```bash
-kubectl create namespace external-secrets
-kubectl create secret generic onepassword-service-account \
-  -n external-secrets --from-literal=token='<1password-service-account-token>'
+# 1. After ArgoCD deploys Vault, initialize it:
+kubectl exec -n vault vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json
+
+# 2. Create the unseal secret from init output:
+kubectl create secret generic vault-unseal-keys -n vault \
+  --from-literal=unseal-key='<KEY>' --from-literal=root-token='<TOKEN>'
+
+# 3. Unseal and restart to verify auto-unseal:
+kubectl exec -n vault vault-0 -- vault operator unseal '<KEY>'
+kubectl delete pod -n vault vault-0
 ```
 
 The ArgoCD repo secret (`homelab-repo` in `argocd` namespace) must also be created manually for the initial bootstrap, but ESO takes over its management once running.
 
+**Vault configuration** (manual, one-time — after init):
+
+```bash
+export VAULT_ADDR=http://vault.vault.svc.cluster.local:8200
+vault secrets enable -path=secret kv-v2
+vault auth enable kubernetes
+vault write auth/kubernetes/config \
+  kubernetes_host="https://kubernetes.default.svc"
+vault policy write eso-read - <<'EOF'
+path "secret/data/homelab/*" { capabilities = ["read"] }
+path "secret/metadata/homelab/*" { capabilities = ["list", "read"] }
+EOF
+vault write auth/kubernetes/role/eso \
+  bound_service_account_names=external-secrets \
+  bound_service_account_namespaces=external-secrets \
+  policies=eso-read ttl=1h
+```
+
 **ESO-managed secrets:**
 
-| Secret | Namespace | 1Password Item | Fields |
-|--------|-----------|----------------|--------|
-| `pihole-secret` | pihole | `pihole` | `webpassword` |
-| `tailscale-auth` | tailscale | `tailscale` | `TS_AUTHKEY` |
-| `grafana-admin-secret` | monitoring | `grafana` | `admin-user`, `admin-password` |
-| `traefik-dashboard-auth` | traefik | `traefik` | `users` (htpasswd format) |
-| `homelab-repo` | argocd | `argocd-repo` | `type`, `repo-url`, `username`, `password` |
+| Secret | Namespace | Vault Path | Fields |
+|--------|-----------|------------|--------|
+| `pihole-secret` | pihole | `homelab/pihole` | `webpassword` |
+| `tailscale-auth` | tailscale | `homelab/tailscale` | `TS_AUTHKEY` |
+| `cost-exporter-secret` | cost-exporter | `homelab/cost-exporter` | `OPENROUTER_API_KEY`, `TAVILY_API_KEY` |
+| `grafana-admin-secret` | monitoring | `homelab/grafana` | `admin-user`, `admin-password` |
+| `traefik-dashboard-auth` | traefik | `homelab/traefik` | `users` (htpasswd format) |
+| `homelab-repo` | argocd | `homelab/argocd/homelab-repo` | `type`, `url`, `username`, `password` |
+| `hermes-darwin-secret` | hermes-darwin | `homelab/hermes/darwin` | `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TAVILY_API_KEY` |
+| `hermes-carson-secret` | hermes-carson | `homelab/hermes/carson` | `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TAVILY_API_KEY`, `HA_TOKEN` |
 
-**1Password item setup:** Each item must exist in the "Homelab" vault with the exact title and field names listed above. ESO uses the SDK provider's `item/field` path syntax (e.g., `pihole/webpassword`). Note: the ArgoCD repo URL is stored as `repo-url` (not `url`) because 1Password treats fields named `url` as URL objects rather than text fields.
+**Writing secrets to Vault:** Use `vault kv put` with the `secret/homelab/` prefix:
 
-**Rotating the GitHub PAT:** Update the `password` field in the `argocd-repo` 1Password item, then restart the ESO controller to clear the SDK cache: `kubectl rollout restart deployment/external-secrets -n external-secrets`. ESO will sync the new PAT to the cluster within ~30s of the restart. Revoke the old PAT in GitHub after confirming ArgoCD still syncs.
+```bash
+vault kv put secret/homelab/pihole webpassword='<value>'
+vault kv put secret/homelab/argocd/homelab-repo type=git url='https://...' username='...' password='<PAT>'
+```
 
-**Rotating SSH keys:** Generate a new Ed25519 SSH key in the 1Password desktop app (Homelab vault), enable it for the SSH agent, and update `~/.config/1Password/ssh/agent.toml` to reference the new item. Deploy the new public key to all hosts (`nuc1-3`, `nas`) via `op item get "<name>" --vault Homelab --fields "public key"`, then remove the old key from each host's `~/.ssh/authorized_keys`.
+**Rotating the GitHub PAT:** Update the `password` field in Vault (`vault kv patch secret/homelab/argocd/homelab-repo password='<NEW_PAT>'`). ESO will sync the new value within the refresh interval (1h). To force immediate sync: `kubectl annotate externalsecret homelab-repo -n argocd force-sync=$(date +%s) --overwrite`.
 
-**Architecture:** ClusterSecretStore `onepassword` connects to 1Password API via service account token. ExternalSecrets for pihole and tailscale live alongside their services; grafana, traefik, and argocd-repo ExternalSecrets live in `k8s/external-secrets/resources/` (they target namespaces different from the deploying app).
+**Architecture:** ClusterSecretStore `vault` connects to `http://vault.vault.svc.cluster.local:8200` using Kubernetes auth (ESO ServiceAccount → TokenReview → `eso` role). ExternalSecrets for pihole, tailscale, and cost-exporter live alongside their services; grafana, traefik, and argocd-repo ExternalSecrets live in `k8s/external-secrets/resources/` (they target namespaces different from the deploying app). Hermes agents use the shared Helm chart's ExternalSecret template configured via `values.yaml`.
+
+**Vault UI:** Available at `vault.homelab.bertbullough.com` via Traefik. Authenticate with the root token or a Vault-native auth method.
 
 ## CI/CD
 
