@@ -316,7 +316,7 @@ resources:
     cpu: "2"
     memory: 4Gi
 
-terminationGracePeriodSeconds: 120
+terminationGracePeriodSeconds: 30
 
 podAnnotations: {}
 deploymentAnnotations: {}
